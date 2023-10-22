@@ -69,7 +69,7 @@ def refresh_token(Authorize: AuthJWT = Depends(), db: Session = Depends(get_db))
                                 detail='The user belonging to this token no logger exist')
         access_token = Authorize.create_access_token(
             subject=str(user.user_id), expires_time=timedelta(minutes=ACCESS_TOKEN_EXPIRES_IN))
-        refresh_token = Authorize.create_access_token(
+        refresh_token = Authorize.create_refresh_token(
             subject=str(user.user_id), expires_time=timedelta(minutes=REFRESH_TOKEN_EXPIRES_IN))
     except Exception as e:
         error = e.__class__.__name__
