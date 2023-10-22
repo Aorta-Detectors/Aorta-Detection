@@ -1,7 +1,17 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Date, Text, DateTime
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
 from sqlalchemy.orm import relationship
 
 from .database import Base
+
 
 class User(Base):
     __tablename__ = "users"
@@ -15,6 +25,7 @@ class User(Base):
 
     appointment_user_link = relationship("Appointment", back_populates="user")
 
+
 class Patient(Base):
     __tablename__ = "patients"
 
@@ -23,26 +34,31 @@ class Patient(Base):
     birth_date = Column(Date, nullable=False)
     is_male = Column(Boolean, nullable=False)
 
-    appointment_patient_line = relationship("Appointment", back_populates="patient")
+    appointment_patient_line = relationship(
+        "Appointment", back_populates="patient"
+    )
+
 
 class Appointment(Base):
     __tablename__ = "appointments"
 
-    appointment_id = Column(Integer, primary_key=True, index=True) 
+    appointment_id = Column(Integer, primary_key=True, index=True)
     appointment_time = Column(DateTime, nullable=False)
     patient_id = Column(
         Integer,
-        ForeignKey('patients.patient_id', ondelete='CASCADE'),
+        ForeignKey("patients.patient_id", ondelete="CASCADE"),
         nullable=False,
     )
     user_id = Column(
         Integer,
-        ForeignKey('users.user_id', ondelete='CASCADE'),
+        ForeignKey("users.user_id", ondelete="CASCADE"),
         nullable=False,
     )
 
     user = relationship("User", back_populates="appointment_user_link")
-    patient = relationship("Patient", back_populates="appointment_patient_line")
+    patient = relationship(
+        "Patient", back_populates="appointment_patient_line"
+    )
 
     blood_pressure = Column(String)
     pulse = Column(Integer)
@@ -54,6 +70,3 @@ class Appointment(Base):
     disease_anamnesis = Column(Text)
     life_anamnesis = Column(Text)
     echocardiogram_data = Column(Text)
-
-
-

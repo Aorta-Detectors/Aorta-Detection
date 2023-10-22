@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS appointments(
     swell VARCHAR(255),
     complains TEXT,
     diagnosis TEXT,
-    disease_complications TEXT, 
+    disease_complications TEXT,
     comorbidities TEXT,
     disease_anamnesis TEXT,
     life_anamnesis TEXT,

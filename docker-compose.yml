@@ -7,7 +7,7 @@ services:
       - "8000:5000"
     depends_on:
       - postgres
-      
+
   postgres_auth:
     image: "postgres:alpine3.18"
     env_file:

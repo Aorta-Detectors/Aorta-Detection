@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from datetime import date, datetime
+
 
 class User(BaseModel):
     first_name: str
@@ -11,12 +11,14 @@ class User(BaseModel):
     class Config:
         orm_mode = True
 
+
 class LoginUser(BaseModel):
     email: str
     password: str
 
     class Config:
         orm_mode = True
+
 
 class ResponseUser(BaseModel):
     user_id: int
