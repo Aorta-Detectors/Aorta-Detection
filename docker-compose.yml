@@ -6,7 +6,7 @@ services:
     ports:
       - "8000:5000"
     depends_on:
-      - postgres
+      - postgres_auth
 
   postgres_auth:
     image: "postgres:alpine3.18"
