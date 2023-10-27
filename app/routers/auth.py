@@ -71,6 +71,12 @@ def login(
         "status": "success",
         "access_token": access_token,
         "refresh_token": refresh_token,
+        "user": {
+            "first_name": user.first_name, 
+            "second_name": user.second_name, 
+            "email": user.email, 
+            "role": user.role,
+        }
     }
 
 
@@ -118,6 +124,12 @@ def refresh_token(
         "status": "success",
         "access_token": access_token,
         "refresh_token": refresh_token,
+        "user": {
+            "first_name": user.first_name, 
+            "second_name": user.second_name, 
+            "email": user.email, 
+            "role": user.role,
+        }
     }
 
 
