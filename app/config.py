@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     POSTGRES_HOST: str
     POSTGRES_PORT: str
 
+    MINIO_ROOT_USER: str
+    MINIO_ROOT_PASSWORD: str
+
     JWT_PUBLIC_KEY: str
     JWT_PRIVATE_KEY: str
     REFRESH_TOKEN_EXPIRES_IN: int

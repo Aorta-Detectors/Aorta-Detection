@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS appointments(
     patient_id INT NOT NULL,
     user_id INT NOT NULL,
     blood_pressure VARCHAR(255),
-    pulse INT NOT NULL,
+    pulse INT,
     swell VARCHAR(255),
     complains TEXT,
     diagnosis TEXT,
@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS appointments(
     disease_anamnesis TEXT,
     life_anamnesis TEXT,
     echocardiogram_data TEXT,
+    is_ready BOOLEAN,
 
     CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(user_id),
     CONSTRAINT fk_patient FOREIGN KEY (patient_id) REFERENCES patients(patient_id)
