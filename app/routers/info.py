@@ -1,4 +1,3 @@
-import tempfile
 from datetime import datetime
 from typing import List
 
@@ -31,7 +30,9 @@ def get_me(
 
 @router.post("/create_appointment")
 def create_appointment(
-    appointment_data: schemas.InputAppointment = Depends(),
+    appointment_data: schemas.InputAppointment = Depends(
+        schemas.InputAppointment.as_form
+    ),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     minio_db: Minio = Depends(get_minio_db),
@@ -54,13 +55,12 @@ def create_appointment(
         + file.filename.split(".")[-1]
     )
 
-    temp_dir = tempfile.TemporaryDirectory()
-    file_path = f"./{temp_dir.name}/{new_filename}"
-
-    with open(file_path, "wb+") as f:
-        f.write(file.file.read())
-    minio_db.fput_object("input", new_filename, file_path)
-    temp_dir.cleanup()
+    file_data = file.file.read()
+    file_length = len(file_data)
+    file.file.seek(0)
+    minio_db.put_object(
+        "input", new_filename, data=file.file, length=file_length
+    )
 
     return {"status": "success"}
 

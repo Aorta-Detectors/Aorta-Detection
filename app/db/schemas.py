@@ -1,7 +1,37 @@
+import inspect
 from datetime import date, datetime
+from typing import Type
 
 from fastapi import Form
 from pydantic import BaseModel
+from pydantic.fields import ModelField
+
+
+def as_form(cls: Type[BaseModel]):
+    new_parameters = []
+
+    for _, model_field in cls.__fields__.items():
+        model_field: ModelField  # type: ignore
+
+        new_parameters.append(
+            inspect.Parameter(
+                model_field.alias,
+                inspect.Parameter.POSITIONAL_ONLY,
+                default=Form(...)
+                if model_field.required
+                else Form(model_field.default),
+                annotation=model_field.outer_type_,
+            )
+        )
+
+    async def as_form_func(**data):
+        return cls(**data)
+
+    sig = inspect.signature(as_form_func)
+    sig = sig.replace(parameters=new_parameters)
+    as_form_func.__signature__ = sig  # type: ignore
+    setattr(cls, "as_form", as_form_func)
+    return cls
 
 
 class User(BaseModel):
@@ -44,22 +74,23 @@ class Patient(BaseModel):
         orm_mode = True
 
 
+@as_form
 class InputAppointment(BaseModel):
-    patient_id: int = Form(...)
-    full_name: str = Form(...)
-    birth_date: date = Form(...)
-    is_male: bool = Form(...)
+    patient_id: int
+    full_name: str
+    birth_date: date
+    is_male: bool
 
-    blood_pressure: str = Form(...)
-    pulse: int = Form(...)
-    swell: str = Form(...)
-    complains: str = Form(...)
-    diagnosis: str = Form(...)
-    disease_complications: str = Form(...)
-    comorbidities: str = Form(...)
-    disease_anamnesis: str = Form(...)
-    life_anamnesis: str = Form(...)
-    echocardiogram_data: str = Form(...)
+    blood_pressure: str
+    pulse: int
+    swell: str
+    complains: str
+    diagnosis: str
+    disease_complications: str
+    comorbidities: str
+    disease_anamnesis: str
+    life_anamnesis: str
+    echocardiogram_data: str
 
     class Config:
         orm_mode = True
