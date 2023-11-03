@@ -120,6 +120,7 @@ class Appointment(BaseModel):
 
 class ResponseAppointment(BaseModel):
     appointment_id: int
+    patient_id: int
     full_name: str
     appointment_time: datetime
     is_ready: bool
