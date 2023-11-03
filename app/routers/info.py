@@ -28,6 +28,20 @@ def get_me(
     return user
 
 
+@router.get("/get_patient", response_model=schemas.Patient)
+def get_patient(
+    patient_id: int,
+    db: Session = Depends(get_db),
+):
+    patient = crud.get_patient_by_id(db, int(patient_id))
+    if not patient:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Patient with given id not found",
+        )
+    return patient
+
+
 @router.post("/create_appointment")
 def create_appointment(
     appointment_data: schemas.InputAppointment = Depends(
@@ -68,6 +82,7 @@ def create_appointment(
 def create_response(appointment: models.Appointment, patient: models.Patient):
     return {
         "appointment_id": appointment.appointment_id,
+        "patient_id": patient.patient_id,
         "full_name": patient.full_name,
         "appointment_time": appointment.appointment_time,
         "is_ready": appointment.is_ready,
