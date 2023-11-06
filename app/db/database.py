@@ -1,3 +1,4 @@
+from minio import Minio
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -23,3 +24,20 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+ACCESS_KEY = settings.MINIO_ROOT_USER
+SECRET_KEY = settings.MINIO_ROOT_PASSWORD
+
+
+def get_minio_db():
+    client = Minio(
+        "minio:9000",
+        access_key=ACCESS_KEY,
+        secret_key=SECRET_KEY,
+        secure=False,
+    )
+    try:
+        yield client
+    finally:
+        del client

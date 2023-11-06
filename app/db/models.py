@@ -34,7 +34,7 @@ class Patient(Base):
     birth_date = Column(Date, nullable=False)
     is_male = Column(Boolean, nullable=False)
 
-    appointment_patient_line = relationship(
+    appointment_patient_link = relationship(
         "Appointment", back_populates="patient"
     )
 
@@ -57,7 +57,7 @@ class Appointment(Base):
 
     user = relationship("User", back_populates="appointment_user_link")
     patient = relationship(
-        "Patient", back_populates="appointment_patient_line"
+        "Patient", back_populates="appointment_patient_link"
     )
 
     blood_pressure = Column(String)
@@ -70,3 +70,4 @@ class Appointment(Base):
     disease_anamnesis = Column(Text)
     life_anamnesis = Column(Text)
     echocardiogram_data = Column(Text)
+    is_ready = Column(Boolean)
