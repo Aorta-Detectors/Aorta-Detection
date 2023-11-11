@@ -53,6 +53,18 @@ def get_appointment(db: Session, user_id: int, page: int, page_size: int):
     )
     return result
 
+def get_all_appointments(db: Session, user_id: int):
+    result = (
+        db.query(models.Appointment, models.Patient)
+        .join(
+            models.Patient,
+            models.Appointment.patient_id == models.Patient.patient_id,
+        )
+        .filter(models.Appointment.user_id == user_id)
+        .all()
+    )
+    return result
+
 
 def get_appointment_by_id(db: Session, appointment_id: int):
     return (

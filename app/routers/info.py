@@ -79,7 +79,7 @@ def create_appointment(
     return {"status": "success"}
 
 
-def create_response(appointment: models.Appointment, patient: models.Patient):
+def create_appointment_response(appointment: models.Appointment, patient: models.Patient):
     return {
         "appointment_id": appointment.appointment_id,
         "patient_id": patient.patient_id,
@@ -94,7 +94,7 @@ def general_appointment_info(
     db: Session = Depends(get_db), user_id: str = Depends(oauth2.require_user)
 ):
     app_pat_info = crud.get_appointment(db, int(user_id), page=0, page_size=10)
-    gen_info = [create_response(app, pat) for app, pat in app_pat_info]
+    gen_info = [create_appointment_response(app, pat) for app, pat in app_pat_info]
     return gen_info
 
 
@@ -110,7 +110,7 @@ def appointment_page(
     app_pat_info = crud.get_appointment(
         db, int(user_id), page=page, page_size=size
     )
-    gen_info = [create_response(app, pat) for app, pat in app_pat_info]
+    gen_info = [create_appointment_response(app, pat) for app, pat in app_pat_info]
     return gen_info
 
 
@@ -128,3 +128,28 @@ def delete_appointment(
         )
     crud.delete_appointment_by_id(db, appointment_id)
     return {"status": "success"}
+
+@router.get("/general_patients_info", response_model=List[schemas.Patient])
+def general_patients_info(
+    db: Session = Depends(get_db), 
+    user_id: str = Depends(oauth2.require_user),
+):
+    # get all appointments for current user_id
+    app_pat_info = crud.get_all_appointments(db, int(user_id))
+    # get unique patients
+    patients = list(set(pat for app, pat in app_pat_info))
+    return patients
+
+@router.get("/patients_page", response_model=List[schemas.Patient])
+def patients_page(
+    page: int = Query(ge=0, default=0),
+    size: int = Query(ge=1, le=100),
+    db: Session = Depends(get_db), 
+    user_id: str = Depends(oauth2.require_user),
+):
+    # get all appointments for current user_id
+    app_pat_info = crud.get_all_appointments(db, int(user_id))
+    # get unique patients
+    patients = list(set(pat for app, pat in app_pat_info))
+    offset = page * size
+    return patients[offset:offset+size]
