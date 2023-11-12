@@ -11,13 +11,22 @@ CREATE TABLE IF NOT EXISTS patients(
     patient_id INT PRIMARY KEY,
     full_name VARCHAR(255) NOT NULL,
     birth_date DATE NOT NULL,
-    is_male BOOLEAN NOT NULL
+    is_male BOOLEAN NOT NULL,
+    height INT NOT NULL,
+    weight INT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS examinations(
+    examination_id serial PRIMARY KEY,
+    patient_id INT NOT NULL,
+
+    CONSTRAINT fk_patient FOREIGN KEY (patient_id) REFERENCES patients(patient_id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS appointments(
     appointment_id serial PRIMARY KEY,
     appointment_time TIMESTAMP NOT NULL,
-    patient_id INT NOT NULL,
+    examination_id INT NOT NULL,
     user_id INT NOT NULL,
     blood_pressure VARCHAR(255),
     pulse INT,
@@ -31,6 +40,6 @@ CREATE TABLE IF NOT EXISTS appointments(
     echocardiogram_data TEXT,
     is_ready BOOLEAN,
 
-    CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(user_id),
-    CONSTRAINT fk_patient FOREIGN KEY (patient_id) REFERENCES patients(patient_id)
+    CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_examination FOREIGN KEY (examination_id) REFERENCES examinations(examination_id) ON DELETE CASCADE
 );

@@ -34,8 +34,29 @@ class Patient(Base):
     birth_date = Column(Date, nullable=False)
     is_male = Column(Boolean, nullable=False)
 
-    appointment_patient_link = relationship(
-        "Appointment", back_populates="patient"
+    height = Column(Integer, nullable=False)
+    weight = Column(Integer, nullable=False)
+
+    examination_patient_link = relationship(
+        "Examination", back_populates="patient"
+    )
+
+
+class Examination(Base):
+    __tablename__ = "examinations"
+
+    examination_id = Column(Integer, primary_key=True, unique=True)
+
+    patient_id = Column(
+        Integer,
+        ForeignKey("patients.patient_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    patient = relationship(
+        "Patient", back_populates="examination_patient_link"
+    )
+    examination_appointment_link = relationship(
+        "Appointment", back_populates="examination"
     )
 
 
@@ -44,21 +65,21 @@ class Appointment(Base):
 
     appointment_id = Column(Integer, primary_key=True, index=True)
     appointment_time = Column(DateTime, nullable=False)
-    patient_id = Column(
-        Integer,
-        ForeignKey("patients.patient_id", ondelete="CASCADE"),
-        nullable=False,
-    )
     user_id = Column(
         Integer,
         ForeignKey("users.user_id", ondelete="CASCADE"),
         nullable=False,
     )
-
-    user = relationship("User", back_populates="appointment_user_link")
-    patient = relationship(
-        "Patient", back_populates="appointment_patient_link"
+    examination_id = Column(
+        Integer,
+        ForeignKey("examinations.examination_id", ondelete="CASCADE"),
+        nullable=False,
     )
+
+    examination = relationship(
+        "Examination", back_populates="examination_appointment_link"
+    )
+    user = relationship("User", back_populates="appointment_user_link")
 
     blood_pressure = Column(String)
     pulse = Column(Integer)
