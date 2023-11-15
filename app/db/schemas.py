@@ -1,6 +1,6 @@
 import inspect
 from datetime import date, datetime
-from typing import Type
+from typing import List, Type
 
 from fastapi import Form
 from pydantic import BaseModel
@@ -69,6 +69,8 @@ class Patient(BaseModel):
     full_name: str
     birth_date: date
     is_male: bool
+    height: int
+    weight: int
 
     class Config:
         orm_mode = True
@@ -76,11 +78,6 @@ class Patient(BaseModel):
 
 @as_form
 class InputAppointment(BaseModel):
-    patient_id: int
-    full_name: str
-    birth_date: date
-    is_male: bool
-
     blood_pressure: str
     pulse: int
     swell: str
@@ -98,7 +95,7 @@ class InputAppointment(BaseModel):
 
 class Appointment(BaseModel):
     user_id: int
-    patient_id: int
+    examination_id: int
 
     appointment_time: datetime
 
@@ -118,12 +115,37 @@ class Appointment(BaseModel):
         orm_mode = True
 
 
-class ResponseAppointment(BaseModel):
+class ResponseAppointment(Appointment):
     appointment_id: int
+
+
+@as_form
+class InputExamination(InputAppointment):
     patient_id: int
     full_name: str
-    appointment_time: datetime
-    is_ready: bool
+    birth_date: date
+    is_male: bool
+    height: int
+    weight: int
 
     class Config:
         orm_mode = True
+
+
+class Examination(BaseModel):
+    patient_id: int
+
+    class Config:
+        orm_mode = True
+
+
+class ResponseExamination(Examination):
+    examination_id: int
+    appointment_ids: List[int]
+
+
+class ResponseExaminationGeneral(BaseModel):
+    examination_id: int
+    patient_id: int
+    patient_name: str
+    last_appointment_time: datetime
