@@ -117,6 +117,31 @@ def get_examination_by_id(db: Session, examination_id: int):
     return result
 
 
+def get_all_user_patients(db: Session, user_id: int):
+    unique_examination_ids = (
+        db.query(models.Appointment.examination_id)
+        .filter(models.Appointment.user_id == user_id)
+        .distinct()
+        .subquery()
+    )
+
+    unique_patient_ids = (
+        db.query(models.Examination.patient_id)
+        .filter(models.Examination.examination_id.in_(unique_examination_ids))
+        .distinct()
+        .subquery()
+    )
+
+    unique_patients = (
+        db.query(models.Patient)
+        .filter(models.Patient.patient_id.in_(unique_patient_ids))
+        .distinct()
+        .all()
+    )
+
+    return unique_patients
+
+
 def delete_examination_by_id(db: Session, examination_id: int):
     db.query(models.Examination).filter(
         models.Examination.examination_id == examination_id
