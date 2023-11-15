@@ -1,10 +1,9 @@
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 from fastapi import (
     APIRouter,
     Depends,
-    File,
     HTTPException,
     Query,
     UploadFile,
@@ -14,7 +13,7 @@ from minio import Minio
 from sqlalchemy.orm import Session
 
 from app import oauth2
-from app.db import crud, models, schemas
+from app.db import crud, schemas
 from app.db.database import get_db, get_minio_db
 
 router = APIRouter()
@@ -42,76 +41,162 @@ def get_patient(
     return patient
 
 
-@router.post("/create_appointment")
-def create_appointment(
-    appointment_data: schemas.InputAppointment = Depends(
-        schemas.InputAppointment.as_form
+def _add_appointment(
+    appointment: schemas.Appointment,
+    db: Session,
+    minio_db: Minio,
+    file: Optional[UploadFile] = None,
+):
+    appointment_updated = crud.create_appointment(db, appointment)
+    result = {"appointment_id": appointment_updated.appointment_id}
+    if file is not None:
+        new_filename = (
+            str(appointment_updated.appointment_id)
+            + "."
+            + file.filename.split(".")[-1]
+        )
+
+        file_data = file.file.read()
+        file_length = len(file_data)
+        file.file.seek(0)
+        minio_db.put_object(
+            "input", new_filename, data=file.file, length=file_length
+        )
+        result["filename"] = new_filename
+    return result
+
+
+@router.post("/create_examination", response_model=schemas.ResponseExamination)
+def create_examination(
+    examination_data: schemas.InputExamination = Depends(
+        schemas.InputExamination.as_form
     ),
-    file: UploadFile = File(...),
+    file: Optional[UploadFile] = None,
     db: Session = Depends(get_db),
     minio_db: Minio = Depends(get_minio_db),
     user_id: str = Depends(oauth2.require_user),
 ):
-    patient = crud.get_patient_by_id(db, appointment_data.patient_id)
+    patient = crud.get_patient_by_id(db, examination_data.patient_id)
     if not patient:
-        patient = schemas.Patient(**appointment_data.dict())
+        patient = schemas.Patient(**examination_data.dict())
         patient = crud.create_patient(db, patient)
+    examination = schemas.Examination(**examination_data.dict())
+    examination_updated = crud.create_examination(db, examination)
 
     appointment = schemas.Appointment(
         user_id=user_id,
         appointment_time=datetime.now(),
-        **appointment_data.dict(),
+        examination_id=examination_updated.examination_id,
+        **examination_data.dict(),
     )
-    appointment_updated = crud.create_appointment(db, appointment)
-    new_filename = (
-        str(appointment_updated.appointment_id)
-        + "."
-        + file.filename.split(".")[-1]
-    )
-
-    file_data = file.file.read()
-    file_length = len(file_data)
-    file.file.seek(0)
-    minio_db.put_object(
-        "input", new_filename, data=file.file, length=file_length
+    appointment_info = _add_appointment(appointment, db, minio_db, file)
+    response = schemas.ResponseExamination(
+        patient_id=examination_updated.patient_id,
+        examination_id=examination_updated.examination_id,
+        appointment_ids=[appointment_info["appointment_id"]],
     )
 
-    return {"status": "success"}
+    return response
 
 
-def create_appointment_response(appointment: models.Appointment, patient: models.Patient):
-    return {
-        "appointment_id": appointment.appointment_id,
-        "patient_id": patient.patient_id,
-        "full_name": patient.full_name,
-        "appointment_time": appointment.appointment_time,
-        "is_ready": appointment.is_ready,
-    }
-
-
-@router.get("/general_info", response_model=List[schemas.ResponseAppointment])
-def general_appointment_info(
-    db: Session = Depends(get_db), user_id: str = Depends(oauth2.require_user)
+@router.get("/get_examination", response_model=schemas.ResponseExamination)
+def get_examination(
+    examination_id: int,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(oauth2.require_user),
 ):
-    app_pat_info = crud.get_appointment(db, int(user_id), page=0, page_size=10)
-    gen_info = [create_appointment_response(app, pat) for app, pat in app_pat_info]
-    return gen_info
+    query_result = crud.get_examination_by_id(db, examination_id)
+    if not query_result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Examination with given id not found",
+        )
+    response = schemas.ResponseExamination(
+        patient_id=query_result[0][0].patient_id,
+        examination_id=examination_id,
+        appointment_ids=[app.appointment_id for _, app in query_result],
+    )
+    return response
 
 
 @router.get(
-    "/appointments_page", response_model=List[schemas.ResponseAppointment]
+    "/get_examinations",
+    response_model=List[schemas.ResponseExaminationGeneral],
 )
-def appointment_page(
+def get_examinations(
     page: int = Query(ge=0, default=0),
     size: int = Query(ge=1, le=100),
     db: Session = Depends(get_db),
     user_id: str = Depends(oauth2.require_user),
 ):
-    app_pat_info = crud.get_appointment(
+    query_result = crud.get_examinations(
         db, int(user_id), page=page, page_size=size
     )
-    gen_info = [create_appointment_response(app, pat) for app, pat in app_pat_info]
-    return gen_info
+    response = []
+    for exam_id, pat_id, pat_name, app_time in query_result:
+        response.append(
+            schemas.ResponseExaminationGeneral(
+                examination_id=exam_id,
+                patient_id=pat_id,
+                patient_name=pat_name,
+                last_appointment_time=app_time,
+            )
+        )
+    return response
+
+
+@router.delete("/delete_examination", status_code=status.HTTP_200_OK)
+def delete_examination(
+    examination_id: int,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(oauth2.require_user),
+):
+    examination = crud.get_examination_by_id(db, examination_id)
+    if not examination:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Examination already deleted",
+        )
+    crud.delete_examination_by_id(db, examination_id)
+
+    return {"status": "success"}
+
+
+@router.put("/add_appointment")
+def add_appointment(
+    examination_id: int,
+    appointment_data: schemas.InputAppointment = Depends(
+        schemas.InputAppointment.as_form
+    ),
+    file: Optional[UploadFile] = None,
+    db: Session = Depends(get_db),
+    minio_db: Minio = Depends(get_minio_db),
+    user_id: str = Depends(oauth2.require_user),
+):
+    appointment = schemas.Appointment(
+        user_id=user_id,
+        appointment_time=datetime.now(),
+        examination_id=examination_id,
+        **appointment_data.dict(),
+    )
+    response = _add_appointment(appointment, db, minio_db, file)
+
+    return response
+
+
+@router.get("/get_appointment", response_model=schemas.ResponseAppointment)
+def get_appointment(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(oauth2.require_user),
+):
+    appointment = crud.get_appointment_by_id(db, appointment_id)
+    if not appointment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Appointment with given id not found",
+        )
+    return appointment
 
 
 @router.delete("/delete_appointment", status_code=status.HTTP_200_OK)
