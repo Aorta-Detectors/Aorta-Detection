@@ -116,17 +116,30 @@ def get_examination_by_id(db: Session, examination_id: int):
     )
     return result
 
-def get_all_appointments(db: Session, user_id: int):
-    result = (
-        db.query(models.Appointment, models.Patient)
-        .join(
-            models.Patient,
-            models.Appointment.patient_id == models.Patient.patient_id,
-        )
+
+def get_all_user_patients(db: Session, user_id: int):
+    unique_examination_ids = (
+        db.query(models.Appointment.examination_id)
         .filter(models.Appointment.user_id == user_id)
+        .distinct()
+        .subquery()
+    )
+
+    unique_patient_ids = (
+        db.query(models.Examination.patient_id)
+        .filter(models.Examination.examination_id.in_(unique_examination_ids))
+        .distinct()
+        .subquery()
+    )
+
+    unique_patients = (
+        db.query(models.Patient)
+        .filter(models.Patient.patient_id.in_(unique_patient_ids))
+        .distinct()
         .all()
     )
-    return result
+
+    return unique_patients
 
 
 def delete_examination_by_id(db: Session, examination_id: int):

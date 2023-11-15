@@ -219,10 +219,7 @@ def general_patients_info(
     db: Session = Depends(get_db), 
     user_id: str = Depends(oauth2.require_user),
 ):
-    # get all appointments for current user_id
-    app_pat_info = crud.get_all_appointments(db, int(user_id))
-    # get unique patients
-    patients = list(set(pat for app, pat in app_pat_info))
+    patients = crud.get_all_user_patients(db, int(user_id))
     return patients
 
 @router.get("/patients_page", response_model=List[schemas.Patient])
@@ -232,9 +229,6 @@ def patients_page(
     db: Session = Depends(get_db), 
     user_id: str = Depends(oauth2.require_user),
 ):
-    # get all appointments for current user_id
-    app_pat_info = crud.get_all_appointments(db, int(user_id))
-    # get unique patients
-    patients = list(set(pat for app, pat in app_pat_info))
+    patients = crud.get_all_user_patients(db, int(user_id))
     offset = page * size
     return patients[offset:offset+size]
