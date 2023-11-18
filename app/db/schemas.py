@@ -1,6 +1,6 @@
 import inspect
 from datetime import date, datetime
-from typing import List, Type
+from typing import List, Optional, Type
 
 from fastapi import Form
 from pydantic import BaseModel
@@ -65,7 +65,7 @@ class ResponseUser(BaseModel):
 
 
 class Patient(BaseModel):
-    patient_id: int
+    patient_id: str
     full_name: str
     birth_date: date
     is_male: bool
@@ -78,16 +78,16 @@ class Patient(BaseModel):
 
 @as_form
 class InputAppointment(BaseModel):
-    blood_pressure: str
-    pulse: int
-    swell: str
-    complains: str
-    diagnosis: str
-    disease_complications: str
-    comorbidities: str
-    disease_anamnesis: str
-    life_anamnesis: str
-    echocardiogram_data: str
+    blood_pressure: Optional[str] = None
+    pulse: Optional[int] = None
+    swell: Optional[str] = None
+    complains: Optional[str] = None
+    diagnosis: Optional[str] = None
+    disease_complications: Optional[str] = None
+    comorbidities: Optional[str] = None
+    disease_anamnesis: Optional[str] = None
+    life_anamnesis: Optional[str] = None
+    echocardiogram_data: Optional[str] = None
 
     class Config:
         orm_mode = True
@@ -99,16 +99,16 @@ class Appointment(BaseModel):
 
     appointment_time: datetime
 
-    blood_pressure: str
-    pulse: int
-    swell: str
-    complains: str
-    diagnosis: str
-    disease_complications: str
-    comorbidities: str
-    disease_anamnesis: str
-    life_anamnesis: str
-    echocardiogram_data: str
+    blood_pressure: Optional[str] = None
+    pulse: Optional[int] = None
+    swell: Optional[str] = None
+    complains: Optional[str] = None
+    diagnosis: Optional[str] = None
+    disease_complications: Optional[str] = None
+    comorbidities: Optional[str] = None
+    disease_anamnesis: Optional[str] = None
+    life_anamnesis: Optional[str] = None
+    echocardiogram_data: Optional[str] = None
     is_ready: bool = False
 
     class Config:
@@ -121,7 +121,7 @@ class ResponseAppointment(Appointment):
 
 @as_form
 class InputExamination(InputAppointment):
-    patient_id: int
+    patient_id: str
     full_name: str
     birth_date: date
     is_male: bool
@@ -146,6 +146,6 @@ class ResponseExamination(Examination):
 
 class ResponseExaminationGeneral(BaseModel):
     examination_id: int
-    patient_id: int
+    patient_id: str
     patient_name: str
     last_appointment_time: datetime
