@@ -134,6 +134,8 @@ class InputExamination(InputAppointment):
 
 class Examination(BaseModel):
     patient_id: int
+    creator_id: int
+    created_at: datetime
 
     class Config:
         orm_mode = True
@@ -141,7 +143,8 @@ class Examination(BaseModel):
 
 class ResponseExamination(Examination):
     examination_id: int
-    appointment_ids: List[int]
+    patient: Patient
+    appointments: List[ResponseAppointment]
 
 
 class ResponseExaminationGeneral(BaseModel):
@@ -149,6 +152,7 @@ class ResponseExaminationGeneral(BaseModel):
     patient_id: str
     patient_name: str
     last_appointment_time: datetime
+
 
 class ResponseExaminationsPagination(BaseModel):
     current_page: int

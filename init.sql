@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS patients(
 CREATE TABLE IF NOT EXISTS examinations(
     examination_id serial PRIMARY KEY,
     patient_id VARCHAR(16) NOT NULL,
-
+    creator_id INT NOT NULL,
+    created_at TIMESTAMP NOT NULL,
     CONSTRAINT fk_patient FOREIGN KEY (patient_id) REFERENCES patients(patient_id) ON DELETE CASCADE
 );
 
