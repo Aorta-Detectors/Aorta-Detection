@@ -149,3 +149,11 @@ class ResponseExaminationGeneral(BaseModel):
     patient_id: int
     patient_name: str
     last_appointment_time: datetime
+
+
+class ResponsePatientsPagination(BaseModel):
+    current_page: int
+    objects_count_on_current_page: int
+    objects_count_total: int
+    page_total_count: int
+    requested_patients: List[Patient]

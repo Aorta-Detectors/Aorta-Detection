@@ -1,4 +1,5 @@
 from datetime import datetime
+from math import ceil
 from typing import List, Optional
 
 from fastapi import (
@@ -214,21 +215,33 @@ def delete_appointment(
     crud.delete_appointment_by_id(db, appointment_id)
     return {"status": "success"}
 
+
 @router.get("/general_patients_info", response_model=List[schemas.Patient])
 def general_patients_info(
-    db: Session = Depends(get_db), 
+    db: Session = Depends(get_db),
     user_id: str = Depends(oauth2.require_user),
 ):
     patients = crud.get_all_user_patients(db, int(user_id))
     return patients
 
-@router.get("/patients_page", response_model=List[schemas.Patient])
+
+@router.get(
+    "/patients_page", response_model=schemas.ResponsePatientsPagination
+)
 def patients_page(
-    page: int = Query(ge=0, default=0),
+    page: int = Query(ge=1, default=1),
     size: int = Query(ge=1, le=100),
-    db: Session = Depends(get_db), 
+    db: Session = Depends(get_db),
     user_id: str = Depends(oauth2.require_user),
 ):
     patients = crud.get_all_user_patients(db, int(user_id))
-    offset = page * size
-    return patients[offset:offset+size]
+    offset = (page - 1) * size
+    requested_patients = patients[offset:offset + size]
+    response = {
+        "current_page": page,
+        "objects_count_on_current_page": len(requested_patients),
+        "objects_count_total": len(patients),
+        "page_total_count": ceil(len(patients) / size),
+        "requested_patients": requested_patients,
+    }
+    return response
