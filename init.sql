@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS users(
 );
 
 CREATE TABLE IF NOT EXISTS patients(
-    patient_id INT PRIMARY KEY,
+    patient_id VARCHAR(16) PRIMARY KEY,
     full_name VARCHAR(255) NOT NULL,
     birth_date DATE NOT NULL,
     is_male BOOLEAN NOT NULL,
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS patients(
 
 CREATE TABLE IF NOT EXISTS examinations(
     examination_id serial PRIMARY KEY,
-    patient_id INT NOT NULL,
+    patient_id VARCHAR(16) NOT NULL,
 
     CONSTRAINT fk_patient FOREIGN KEY (patient_id) REFERENCES patients(patient_id) ON DELETE CASCADE
 );
