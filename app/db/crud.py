@@ -28,7 +28,7 @@ def create_patient(db: Session, patient: schemas.Patient):
     return db_patient
 
 
-def get_patient_by_id(db: Session, patient_id: int):
+def get_patient_by_id(db: Session, patient_id: str):
     return (
         db.query(models.Patient)
         .filter(models.Patient.patient_id == patient_id)
@@ -36,7 +36,7 @@ def get_patient_by_id(db: Session, patient_id: int):
     )
 
 
-def delete_patient_by_id(db: Session, patient_id: int):
+def delete_patient_by_id(db: Session, patient_id: str):
     db.query(models.Patient).filter(
         models.Patient.patient_id == patient_id
     ).delete()
@@ -104,11 +104,15 @@ def get_examinations(db: Session, user_id: int, page: int, page_size: int):
 
 def get_examination_by_id(db: Session, examination_id: int):
     result = (
-        db.query(models.Examination, models.Appointment)
+        db.query(models.Examination, models.Appointment, models.Patient)
         .join(
             models.Appointment,
             models.Examination.examination_id
             == models.Appointment.examination_id,
+        )
+        .join(
+            models.Patient,
+            models.Examination.patient_id == models.Patient.patient_id,
         )
         .filter(models.Examination.examination_id == examination_id)
         .order_by(models.Appointment.appointment_time)

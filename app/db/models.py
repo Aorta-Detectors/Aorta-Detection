@@ -52,6 +52,9 @@ class Examination(Base):
         ForeignKey("patients.patient_id", ondelete="CASCADE"),
         nullable=False,
     )
+    creator_id = Column(Integer)
+    created_at = Column(DateTime)
+
     patient = relationship(
         "Patient", back_populates="examination_patient_link"
     )
