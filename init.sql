@@ -51,10 +51,10 @@ CREATE TABLE IF NOT EXISTS appointment_file(
     file_hash VARCHAR(32),
 
     CONSTRAINT fk_appointment FOREIGN KEY (appointment_id) REFERENCES appointments(appointment_id) ON DELETE CASCADE
-)
+);
 
 CREATE TABLE IF NOT EXISTS series(
     series_hash VARCHAR(32) PRIMARY KEY,
     file_hash VARCHAR(32),
-    status VARCHAR(255),
-)
+    status VARCHAR(255)
+);

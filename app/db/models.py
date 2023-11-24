@@ -113,11 +113,11 @@ class AppointmentFile(Base):
     appointment_file_link = relationship(
         "Appointment", back_populates="file_appointment_link"
     )
-    file_hash = Column(str)
+    file_hash = Column(String)
 
 
 class Series(Base):
     __tablename__ = "series"
-    series_hash = Column(str, primary_key=True, index=True)
-    file_hash = Column(str)
-    status = Column(str)
+    series_hash = Column(String, primary_key=True, index=True)
+    file_hash = Column(String)
+    status = Column(String)
