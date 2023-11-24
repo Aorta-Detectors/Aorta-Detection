@@ -168,3 +168,15 @@ class ResponsePatientsPagination(BaseModel):
     objects_count_total: int
     page_total_count: int
     requested_patients: List[Patient]
+
+
+class StatusInput(BaseModel):
+    appointment_id: int
+    file_hash: str
+    series_hashes: List[str]
+
+
+class StatusChange(BaseModel):
+    file_hash: str
+    series_hash: str
+    status: str

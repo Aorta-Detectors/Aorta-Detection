@@ -243,6 +243,18 @@ def add_appointment(
     return response
 
 
+@router.put("/add_file", description="Add file to existing appointment.")
+def add_file(
+    examination_id: int,
+    appointment_id: int,
+    file: UploadFile,
+    db: Session = Depends(get_db),
+    minio_db: Minio = Depends(get_minio_db),
+    user_id: str = Depends(oauth2.require_user),
+):
+    raise NotImplementedError
+
+
 @router.get(
     "/get_appointment",
     response_model=schemas.ResponseAppointment,

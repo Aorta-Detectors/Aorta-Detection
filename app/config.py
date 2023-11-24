@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     POSTGRES_HOST: str
     POSTGRES_PORT: str
 
+    MINIO_HTTP: str
     MINIO_ROOT_USER: str
     MINIO_ROOT_PASSWORD: str
 

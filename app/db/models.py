@@ -84,6 +84,10 @@ class Appointment(Base):
     )
     user = relationship("User", back_populates="appointment_user_link")
 
+    file_appointment_link = relationship(
+        "AppointmentFile", back_populates="appointment_file_link"
+    )
+
     blood_pressure = Column(String)
     pulse = Column(Integer)
     swell = Column(String)
@@ -95,3 +99,25 @@ class Appointment(Base):
     life_anamnesis = Column(Text)
     echocardiogram_data = Column(Text)
     is_ready = Column(Boolean)
+
+
+class AppointmentFile(Base):
+    __tablename__ = "appointment_file"
+    appointment_file_key = Column(Integer, primary_key=True, index=True)
+    appointment_id = Column(
+        Integer,
+        ForeignKey("appointments.appointment_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    appointment_file_link = relationship(
+        "Appointment", back_populates="file_appointment_link"
+    )
+    file_hash = Column(str)
+
+
+class Series(Base):
+    __tablename__ = "series"
+    series_hash = Column(str, primary_key=True, index=True)
+    file_hash = Column(str)
+    status = Column(str)

@@ -26,13 +26,14 @@ def get_db():
         db.close()
 
 
+MINIO_HTTP = settings.MINIO_HTTP
 ACCESS_KEY = settings.MINIO_ROOT_USER
 SECRET_KEY = settings.MINIO_ROOT_PASSWORD
 
 
 def get_minio_db():
     client = Minio(
-        "minio:9000",
+        MINIO_HTTP,
         access_key=ACCESS_KEY,
         secret_key=SECRET_KEY,
         secure=False,
