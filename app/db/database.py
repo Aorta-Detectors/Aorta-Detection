@@ -1,9 +1,9 @@
-from minio import Minio
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 from app.config import settings
+from minio_path import MinioPath
 
 USER = settings.POSTGRES_USER
 PASS = settings.POSTGRES_PASSWORD
@@ -27,18 +27,21 @@ def get_db():
 
 
 MINIO_HTTP = settings.MINIO_HTTP
-ACCESS_KEY = settings.MINIO_ROOT_USER
-SECRET_KEY = settings.MINIO_ROOT_PASSWORD
+MINIO_ACCESS_KEY = settings.MINIO_ROOT_USER
+MINIO_SECRET_KEY = settings.MINIO_ROOT_PASSWORD
 
 
 def get_minio_db():
-    client = Minio(
-        MINIO_HTTP,
-        access_key=ACCESS_KEY,
-        secret_key=SECRET_KEY,
-        secure=False,
+    s3_path = (
+        MinioPath.fromauth(
+            host=MINIO_HTTP,
+            access_key=MINIO_ACCESS_KEY,
+            secret_key=MINIO_SECRET_KEY,
+            secure=False,
+        )
+        / "inputdicom"
     )
     try:
-        yield client
+        yield s3_path
     finally:
-        del client
+        del s3_path

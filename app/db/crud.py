@@ -179,22 +179,34 @@ def delete_appointment_by_id(db: Session, appointment_id: int):
 
 
 def create_status(db: Session, input_data: schemas.StatusInput):
-    db_appountment_file = models.AppointmentFile(
+    db_appointment_file = models.AppointmentFile(
         appointment_id=input_data.appointment_id,
         file_hash=input_data.file_hash,
     )
 
-    for series_hash in input_data.series_hashes:
+    for series_hash in sorted(input_data.series_hashes):
         db_series = models.Series(
             series_hash=series_hash,
             file_hash=input_data.file_hash,
             status="Preprocessing",
         )
         db.add(db_series)
-    db.add(db_appountment_file)
+
+    db.add(db_appointment_file)
     db.commit()
-    db.refresh(db_appountment_file)
-    return db_appountment_file
+    db.refresh(db_appointment_file)
+
+
+def get_series_status(db: Session, file_hash: str, series_hash: str):
+    result = (
+        db.query(models.Series)
+        .filter(
+            (models.Series.series_hash == series_hash)
+            & (models.Series.file_hash == file_hash)
+        )
+        .first()
+    )
+    return result
 
 
 def change_status(db: Session, data: schemas.StatusChange):
@@ -204,7 +216,7 @@ def change_status(db: Session, data: schemas.StatusChange):
         .filter(models.Series.series_hash == data.series_hash)
         .first()
     )
-    result.update({"status": data.status})
+    result.status = data.status
     db.commit()
     db.refresh(result)
     return result

@@ -1,7 +1,9 @@
+import zipfile
 from datetime import datetime
 from math import ceil
 from typing import Optional
 
+import httpx
 from fastapi import (
     APIRouter,
     Depends,
@@ -14,10 +16,14 @@ from minio import Minio
 from sqlalchemy.orm import Session
 
 from app import oauth2
+from app.config import settings
 from app.db import crud, schemas
 from app.db.database import get_db, get_minio_db
+from dicom_wrapper import DicomCube, DicomParser
 
 router = APIRouter()
+AI_MODULE_HTTP = settings.AI_MODULE_HTTP
+AI_MODULE_POST_ENDPOINT = settings.AI_MODULE_POST_ENDPOINT
 
 
 @router.get("/me", response_model=schemas.ResponseUser)
@@ -243,16 +249,129 @@ def add_appointment(
     return response
 
 
-@router.put("/add_file", description="Add file to existing appointment.")
+@router.put(
+    "/add_file",
+    response_model=schemas.ResponseSeriesesStatuses,
+    description="Add file to existing appointment.",
+)
 def add_file(
-    examination_id: int,
     appointment_id: int,
     file: UploadFile,
     db: Session = Depends(get_db),
-    minio_db: Minio = Depends(get_minio_db),
+    s3_path: Minio = Depends(get_minio_db),
     user_id: str = Depends(oauth2.require_user),
 ):
-    raise NotImplementedError
+    dicom_unzip = zipfile.ZipFile(file.file)
+
+    for filename in dicom_unzip.namelist():
+        (s3_path / filename).write(
+            dicom_unzip.open(filename), len(dicom_unzip.open(filename).read())
+        )
+        if "DICOMDIR" in filename:
+            dicom_path = s3_path.joinpath(*filename.split("/"))
+
+    cube = DicomCube(DicomParser(dicom_path))
+    dicom_path = cube.upload(s3_path)
+    file_hash = cube.hash
+
+    ai_module_request = {
+        "s3_dicom_path": dicom_path.path,
+    }
+
+    try:
+        with httpx.Client() as client:
+            response = client.post(
+                f"{AI_MODULE_HTTP}{AI_MODULE_POST_ENDPOINT}",
+                json=ai_module_request,
+            )
+        # Check if the request was successful (status code 2xx)
+        response.raise_for_status()
+    except httpx.HTTPError as exc:
+        # Handle any HTTP errors
+        raise HTTPException(
+            status_code=exc.response.status_code, detail=str(exc)
+        )
+
+    possible_steps = [
+        "Preprocessing",
+        "Segmentation",
+        "Pathline extraction",
+        "Slicing",
+    ]
+    serieses_hashes, serieses_statuses = [], []
+    for series_hash, series_data in cube.serieses:
+        if len(series_data) == 0:
+            continue
+        serieses_hashes.append(series_hash)
+        series_steps_statuses = []
+        for step_name in possible_steps:
+            step_status = schemas.StepStatus(
+                step_name=step_name,
+                is_ready=False,
+            )
+            series_steps_statuses.append(step_status)
+
+        series_steps_statuses = schemas.SeriesStepsStatuses(
+            series_hash=series_hash,
+            series_statuses=series_steps_statuses,
+        )
+        serieses_statuses.append(series_steps_statuses)
+    response = schemas.ResponseSeriesesStatuses(
+        serieses_num=len(serieses_hashes), serieses_statuses=serieses_statuses
+    )
+    input_data = schemas.StatusInput(
+        appointment_id=appointment_id,
+        file_hash=file_hash,
+        series_hashes=serieses_hashes,
+    )
+    crud.create_status(db, input_data)
+
+    return response
+
+
+@router.get(
+    "/get_status",
+    response_model=schemas.ResponseSeriesesStatuses,
+    description="Get current status for appointment file.",
+)
+def get_status(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(oauth2.require_user),
+):
+    possible_steps = [
+        "Preprocessing",
+        "Segmentation",
+        "Pathline extraction",
+        "Slicing",
+        "Done",
+    ]
+    serieses_statuses = []
+    file_series = crud.get_status(db, appointment_id)
+    for _, series in file_series:
+        file_hash = series.file_hash
+        series_hash = series.series_hash
+        series_status = crud.get_series_status(
+            db, file_hash, series_hash
+        ).status
+        is_ready_until = possible_steps.index(series_status)
+        series_steps_statuses = []
+
+        for i, step_name in enumerate(possible_steps[:-1]):
+            step_status = schemas.StepStatus(
+                step_name=step_name,
+                is_ready=True if i < is_ready_until else False,
+            )
+            series_steps_statuses.append(step_status)
+        series_steps_statuses = schemas.SeriesStepsStatuses(
+            series_hash=series_hash,
+            series_statuses=series_steps_statuses,
+        )
+        serieses_statuses.append(series_steps_statuses)
+    response = schemas.ResponseSeriesesStatuses(
+        serieses_num=len(file_series), serieses_statuses=serieses_statuses
+    )
+    return response
 
 
 @router.get(

@@ -24,11 +24,13 @@ Jinja2==3.1.2
 Mako==1.2.4
 MarkupSafe==2.1.1
 minio
+numpy==1.26.0
 orjson==3.8.3
 passlib==1.7.4
 psycopg2==2.9.5
 pycparser==2.21
 pydantic==1.10.2
+pydicom==2.4.3
 PyJWT==1.7.1
 python-dotenv==0.21.0
 python-multipart==0.0.5

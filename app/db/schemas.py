@@ -176,6 +176,21 @@ class StatusInput(BaseModel):
     series_hashes: List[str]
 
 
+class StepStatus(BaseModel):
+    step_name: str
+    is_ready: bool
+
+
+class SeriesStepsStatuses(BaseModel):
+    series_hash: str
+    series_statuses: List[StepStatus]
+
+
+class ResponseSeriesesStatuses(BaseModel):
+    serieses_num: int
+    serieses_statuses: List[SeriesStepsStatuses]
+
+
 class StatusChange(BaseModel):
     file_hash: str
     series_hash: str
