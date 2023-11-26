@@ -1,7 +1,6 @@
 import zipfile
 from datetime import datetime
 from math import ceil
-from typing import Optional
 
 import httpx
 from fastapi import (
@@ -52,30 +51,6 @@ def get_patient(
     return patient
 
 
-def _add_appointment(
-    appointment: schemas.Appointment,
-    db: Session,
-    minio_db: Minio,
-    file: Optional[UploadFile] = None,
-):
-    appointment_db = crud.create_appointment(db, appointment)
-    filename = None
-    if file is not None:
-        new_filename = (
-            str(appointment_db.appointment_id)
-            + "."
-            + file.filename.split(".")[-1]
-        )
-
-        file_data = file.file.read()
-        file_length = len(file_data)
-        file.file.seek(0)
-        minio_db.put_object(
-            "input", new_filename, data=file.file, length=file_length
-        )
-    return appointment_db, filename
-
-
 @router.post(
     "/create_examination",
     response_model=schemas.ResponseExamination,
@@ -89,9 +64,7 @@ def create_examination(
     examination_data: schemas.InputExamination = Depends(
         schemas.InputExamination.as_form
     ),
-    file: Optional[UploadFile] = None,
     db: Session = Depends(get_db),
-    minio_db: Minio = Depends(get_minio_db),
     user_id: str = Depends(oauth2.require_user),
 ):
     patient_db = crud.get_patient_by_id(db, examination_data.patient_id)
@@ -114,7 +87,7 @@ def create_examination(
         examination_id=examination_db.examination_id,
         **examination_data.dict(),
     )
-    appointment_db, _ = _add_appointment(appointment, db, minio_db, file)
+    appointment_db = crud.create_appointment(db, appointment)
     appointment_updated = schemas.ResponseAppointment(
         **appointment_db.__dict__
     )
@@ -227,9 +200,7 @@ def add_appointment(
     appointment_data: schemas.InputAppointment = Depends(
         schemas.InputAppointment.as_form
     ),
-    file: Optional[UploadFile] = None,
     db: Session = Depends(get_db),
-    minio_db: Minio = Depends(get_minio_db),
     user_id: str = Depends(oauth2.require_user),
 ):
     examination = crud.get_examination_by_id(db, examination_id)
@@ -244,7 +215,7 @@ def add_appointment(
         examination_id=examination_id,
         **appointment_data.dict(),
     )
-    response = _add_appointment(appointment, db, minio_db, file)
+    response = crud.create_appointment(db, appointment)
 
     return response
 
@@ -261,6 +232,18 @@ def add_file(
     s3_path: Minio = Depends(get_minio_db),
     user_id: str = Depends(oauth2.require_user),
 ):
+    appointment = crud.get_appointment_by_id(db, appointment_id)
+    if not appointment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Appointment {appointment_id} is not exists",
+        )
+    file_ext = file.filename.split(".")[-1]
+    if file_ext != "zip":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only zip files are supported",
+        )
     dicom_unzip = zipfile.ZipFile(file.file)
 
     for filename in dicom_unzip.namelist():
@@ -295,6 +278,7 @@ def add_file(
     possible_steps = [
         "Preprocessing",
         "Segmentation",
+        "Resampling",
         "Pathline extraction",
         "Slicing",
     ]
@@ -317,7 +301,9 @@ def add_file(
         )
         serieses_statuses.append(series_steps_statuses)
     response = schemas.ResponseSeriesesStatuses(
-        serieses_num=len(serieses_hashes), serieses_statuses=serieses_statuses
+        serieses_num=len(serieses_hashes),
+        file_hash=file_hash,
+        serieses_statuses=serieses_statuses,
     )
     input_data = schemas.StatusInput(
         appointment_id=appointment_id,
@@ -339,9 +325,16 @@ def get_status(
     db: Session = Depends(get_db),
     user_id: str = Depends(oauth2.require_user),
 ):
+    appointment = crud.get_appointment_by_id(db, appointment_id)
+    if not appointment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Appointment {appointment_id} is not exists",
+        )
     possible_steps = [
         "Preprocessing",
         "Segmentation",
+        "Resampling",
         "Pathline extraction",
         "Slicing",
         "Done",
@@ -369,7 +362,9 @@ def get_status(
         )
         serieses_statuses.append(series_steps_statuses)
     response = schemas.ResponseSeriesesStatuses(
-        serieses_num=len(file_series), serieses_statuses=serieses_statuses
+        serieses_num=len(file_series),
+        file_hash=file_hash,
+        serieses_statuses=serieses_statuses,
     )
     return response
 

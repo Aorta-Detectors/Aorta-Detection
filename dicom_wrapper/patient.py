@@ -12,7 +12,8 @@ class DicomPatient:
         self.record = record
         self.name = str(record.PatientName)
         self.studies = [
-            DicomStudy(record, path, slice_path) for record in self.record.children
+            DicomStudy(record, path, slice_path)
+            for record in self.record.children
         ]
 
     def __str__(self) -> str:
@@ -50,5 +51,6 @@ class DicomPatient:
     def series_names(self) -> Generator[tuple[str, DicomSeries], None, None]:
         for study in self.studies:
             yield from (
-                (f"{self}_{name}", series) for name, series in study.series_names
+                (f"{self}_{name}", series)
+                for name, series in study.series_names
             )

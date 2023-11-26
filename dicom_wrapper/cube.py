@@ -54,7 +54,8 @@ class DicomCube:
     def serieses_name(self) -> Generator[tuple[str, DicomSeries], None, None]:
         for patient in self.patient_records:
             yield from (
-                (make_hash(name), series) for name, series in patient.series_names
+                (make_hash(name), series)
+                for name, series in patient.series_names
             )
 
     def upload(self, s3path: MinioPath):

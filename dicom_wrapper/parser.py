@@ -2,10 +2,11 @@ import hashlib
 from pathlib import Path
 from typing import Any, Iterable
 
-from minio_path import MinioPath
-from minio_path.utils import read_file
 from pydicom.dataset import FileDataset
 from pydicom.filereader import dcmread
+
+from minio_path import MinioPath
+from minio_path.utils import read_file
 
 PT = Path | MinioPath
 
@@ -24,7 +25,9 @@ def make_hash(data: Any) -> str:
 class DicomParser:
     def __init__(self, path: PT):
         if path.name == "DICOMDIR":
-            self.slice_path = _get_shortest_path(path.parent.iterdir(), path.parent)
+            self.slice_path = _get_shortest_path(
+                path.parent.iterdir(), path.parent
+            )
         else:
             self.slice_path = _get_shortest_path(path.iterdir(), path)
         self.path = path

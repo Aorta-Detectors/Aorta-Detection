@@ -1,7 +1,8 @@
 import numpy as np
-from minio_path.utils import read_file
 from pydicom.dataset import Dataset
 from pydicom.filereader import dcmread
+
+from minio_path.utils import read_file
 
 from .parser import PT
 

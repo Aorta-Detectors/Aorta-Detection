@@ -13,7 +13,8 @@ class DicomStudy:
         self.date = str(record.StudyDate)
         self.time = str(record.StudyTime)
         self._serieses = [
-            DicomSeries(record, path, slice_path) for record in self.record.children
+            DicomSeries(record, path, slice_path)
+            for record in self.record.children
         ]
 
     def __str__(self) -> str:
@@ -38,7 +39,10 @@ class DicomStudy:
     def old_name_mapping(self) -> Generator[tuple[str, str], None, None]:
         for series in self._serieses:
             old_name, new_name = series.old_name_mapping
-            yield (f"{self.description} {old_name}".lstrip(" "), f"{self}_{new_name}")
+            yield (
+                f"{self.description} {old_name}".lstrip(" "),
+                f"{self}_{new_name}",
+            )
 
     @property
     def serieses(self) -> Generator[Series, None, None]:

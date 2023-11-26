@@ -20,7 +20,11 @@ def _compute_from_raw_spacings(data: np.ndarray) -> Spacing:
         np.unique(data[:, 1]),
         np.unique(np.diff(data[:, 2], axis=0).round(3), axis=0),
     )
-    if spacing_x.shape[0] != 1 and spacing_y.shape[0] != 1 and spcing_z.shape[0] != 1:
+    if (
+        spacing_x.shape[0] != 1
+        and spacing_y.shape[0] != 1
+        and spcing_z.shape[0] != 1
+    ):
         raise Exception(
             f"invalid unique spacing values: {spacing_x, spacing_y, spcing_z}"
         )

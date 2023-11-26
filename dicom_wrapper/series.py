@@ -19,7 +19,8 @@ class DicomSeries:
         )
         self.number = str(record.SeriesNumber)
         self.slices = [
-            DicomSlice(record, path, slice_path) for record in self.record.children
+            DicomSlice(record, path, slice_path)
+            for record in self.record.children
         ]
 
     def __str__(self) -> str:
@@ -40,7 +41,11 @@ class DicomSeries:
     @property
     def series(self) -> Series:
         data = [slice_record.read_all() for slice_record in self.slices]
-        frames = [(frame, spacing) for frame, spacing in data if (frame is not None) and (spacing is not None)]
+        frames = [
+            (frame, spacing)
+            for frame, spacing in data
+            if (frame is not None) and (spacing is not None)
+        ]
         sorted_frames = sorted(frames, key=lambda x: x[1][2])
         data_frames = [frame[0] for frame in sorted_frames]
         if len(data_frames):

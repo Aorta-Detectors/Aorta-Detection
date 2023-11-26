@@ -188,6 +188,7 @@ class SeriesStepsStatuses(BaseModel):
 
 class ResponseSeriesesStatuses(BaseModel):
     serieses_num: int
+    file_hash: str
     serieses_statuses: List[SeriesStepsStatuses]
 
 

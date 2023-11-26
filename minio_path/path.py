@@ -51,7 +51,9 @@ class MinioPath:
         return name.strip("/")
 
     @classmethod
-    def fromauth(cls, host: str, access_key: str, secret_key: str, **kwargs) -> Self:
+    def fromauth(
+        cls, host: str, access_key: str, secret_key: str, **kwargs
+    ) -> Self:
         return MinioPath(
             Minio(host, access_key=access_key, secret_key=secret_key, **kwargs)
         )
@@ -63,7 +65,9 @@ class MinioPath:
     @classmethod
     def frompath(cls, current_path: Self, new_path: str) -> Self:
         new_minio_path = cls(
-            minio=current_path.minio, path=current_path.path, parent=current_path
+            minio=current_path.minio,
+            path=current_path.path,
+            parent=current_path,
         )
         new_minio_path.parent.path = cls.sep
         new_minio_path.path = new_path
@@ -77,7 +81,9 @@ class MinioPath:
             return self / paths[0]
         if len(paths[0]) == 0:
             return self.joinpath(*paths[1:])
-        return (self / f"{paths[0].rstrip(self.sep)}{self.sep}").joinpath(*paths[1:])
+        return (self / f"{paths[0].rstrip(self.sep)}{self.sep}").joinpath(
+            *paths[1:]
+        )
 
     def __str__(self) -> str:
         return self._path
