@@ -4,8 +4,8 @@ import zipfile
 from datetime import datetime
 from math import ceil
 
-import httpx
 import numpy as np
+import requests
 from fastapi import (
     APIRouter,
     Depends,
@@ -269,14 +269,13 @@ def add_file(
     }
 
     try:
-        with httpx.Client() as client:
-            response = client.post(
-                f"{AI_MODULE_HTTP}{AI_MODULE_POST_ENDPOINT}",
-                json=ai_module_request,
-            )
+        response = requests.post(
+            f"{AI_MODULE_HTTP}{AI_MODULE_POST_ENDPOINT}",
+            json=ai_module_request,
+        )
         # Check if the request was successful (status code 2xx)
         response.raise_for_status()
-    except httpx.HTTPError as exc:
+    except requests.HTTPError as exc:
         # Handle any HTTP errors
         raise HTTPException(
             status_code=exc.response.status_code, detail=str(exc)
@@ -403,6 +402,7 @@ def get_slices_num(
 def get_slice(
     appointment_id: int,
     series_id: int,
+    slice_num: int,
     db: Session = Depends(get_db),
     minio: Minio = Depends(get_minio_results),
     user_id: str = Depends(oauth2.require_user),
@@ -412,8 +412,8 @@ def get_slice(
     file_hash = series.file_hash
     series_hash = series.series_hash
 
-    path = minio / file_hash / series_hash / "slices" / str(series_id)
-    slice = numpy_load(path)
+    path = minio / file_hash / series_hash / "slices" / str(slice_num)
+    slice = numpy_load(path / "slice.npy")
     slice = (slice - slice.min()) / (slice.max() - slice.min())
     slice = (slice * 255).astype(np.uint8)
     gray_image = Image.fromarray(slice, "L")
