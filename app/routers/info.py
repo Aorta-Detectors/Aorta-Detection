@@ -395,6 +395,14 @@ def get_slices_num(
     return {"slices_num": 10}
 
 
+def get_temp_dir():
+    dir = tempfile.TemporaryDirectory()
+    try:
+        yield dir.name
+    finally:
+        del dir
+
+
 @router.get(
     "/get_slice",
     description="Get num of slices for report.",
@@ -405,6 +413,7 @@ def get_slice(
     slice_num: int,
     db: Session = Depends(get_db),
     minio: Minio = Depends(get_minio_results),
+    temp_dir=Depends(get_temp_dir),
     user_id: str = Depends(oauth2.require_user),
 ):
     statuses = crud.get_status(db, appointment_id)
@@ -418,11 +427,10 @@ def get_slice(
     slice = (slice * 255).astype(np.uint8)
     gray_image = Image.fromarray(slice, "L")
 
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_file_path = os.path.join(temp_dir, "temp_image.png")
-        gray_image.save(temp_file_path)
+    temp_file_path = os.path.join(temp_dir, "temp_image.png")
+    gray_image.save(temp_file_path)
 
-        return FileResponse(temp_file_path)
+    return FileResponse(temp_file_path)
 
 
 @router.get(
