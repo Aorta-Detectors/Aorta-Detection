@@ -8,8 +8,12 @@ class Settings(BaseSettings):
     POSTGRES_HOST: str
     POSTGRES_PORT: str
 
+    MINIO_HTTP: str
     MINIO_ROOT_USER: str
     MINIO_ROOT_PASSWORD: str
+
+    AI_MODULE_HTTP: str
+    AI_MODULE_POST_ENDPOINT: str
 
     JWT_PUBLIC_KEY: str
     JWT_PRIVATE_KEY: str

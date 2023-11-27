@@ -1,7 +1,13 @@
+import os
+import tempfile
+import zipfile
 from datetime import datetime
 from math import ceil
-from typing import Optional
 
+import cv2
+import matplotlib.pyplot as plt
+import numpy as np
+import requests
 from fastapi import (
     APIRouter,
     Depends,
@@ -10,14 +16,21 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.responses import FileResponse
 from minio import Minio
+from PIL import Image
 from sqlalchemy.orm import Session
 
 from app import oauth2
+from app.config import settings
 from app.db import crud, schemas
-from app.db.database import get_db, get_minio_db
+from app.db.database import get_db, get_minio_db, get_minio_results
+from dicom_wrapper import DicomCube, DicomParser
+from minio_path.utils import numpy_load
 
 router = APIRouter()
+AI_MODULE_HTTP = settings.AI_MODULE_HTTP
+AI_MODULE_POST_ENDPOINT = settings.AI_MODULE_POST_ENDPOINT
 
 
 @router.get("/me", response_model=schemas.ResponseUser)
@@ -46,30 +59,6 @@ def get_patient(
     return patient
 
 
-def _add_appointment(
-    appointment: schemas.Appointment,
-    db: Session,
-    minio_db: Minio,
-    file: Optional[UploadFile] = None,
-):
-    appointment_db = crud.create_appointment(db, appointment)
-    filename = None
-    if file is not None:
-        new_filename = (
-            str(appointment_db.appointment_id)
-            + "."
-            + file.filename.split(".")[-1]
-        )
-
-        file_data = file.file.read()
-        file_length = len(file_data)
-        file.file.seek(0)
-        minio_db.put_object(
-            "input", new_filename, data=file.file, length=file_length
-        )
-    return appointment_db, filename
-
-
 @router.post(
     "/create_examination",
     response_model=schemas.ResponseExamination,
@@ -83,9 +72,7 @@ def create_examination(
     examination_data: schemas.InputExamination = Depends(
         schemas.InputExamination.as_form
     ),
-    file: Optional[UploadFile] = None,
     db: Session = Depends(get_db),
-    minio_db: Minio = Depends(get_minio_db),
     user_id: str = Depends(oauth2.require_user),
 ):
     patient_db = crud.get_patient_by_id(db, examination_data.patient_id)
@@ -108,7 +95,7 @@ def create_examination(
         examination_id=examination_db.examination_id,
         **examination_data.dict(),
     )
-    appointment_db, _ = _add_appointment(appointment, db, minio_db, file)
+    appointment_db = crud.create_appointment(db, appointment)
     appointment_updated = schemas.ResponseAppointment(
         **appointment_db.__dict__
     )
@@ -221,9 +208,7 @@ def add_appointment(
     appointment_data: schemas.InputAppointment = Depends(
         schemas.InputAppointment.as_form
     ),
-    file: Optional[UploadFile] = None,
     db: Session = Depends(get_db),
-    minio_db: Minio = Depends(get_minio_db),
     user_id: str = Depends(oauth2.require_user),
 ):
     examination = crud.get_examination_by_id(db, examination_id)
@@ -238,9 +223,272 @@ def add_appointment(
         examination_id=examination_id,
         **appointment_data.dict(),
     )
-    response = _add_appointment(appointment, db, minio_db, file)
+    response = crud.create_appointment(db, appointment)
 
     return response
+
+
+@router.put(
+    "/add_file",
+    response_model=schemas.ResponseSeriesesStatuses,
+    description="Add file to existing appointment.",
+)
+def add_file(
+    appointment_id: int,
+    file: UploadFile,
+    db: Session = Depends(get_db),
+    s3_path: Minio = Depends(get_minio_db),
+    user_id: str = Depends(oauth2.require_user),
+):
+    appointment = crud.get_appointment_by_id(db, appointment_id)
+    if not appointment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Appointment {appointment_id} is not exists",
+        )
+    file_ext = file.filename.split(".")[-1]
+    if file_ext != "zip":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only zip files are supported",
+        )
+    dicom_unzip = zipfile.ZipFile(file.file)
+
+    for filename in dicom_unzip.namelist():
+        (s3_path / filename).write(
+            dicom_unzip.open(filename), len(dicom_unzip.open(filename).read())
+        )
+        if "DICOMDIR" in filename:
+            dicom_path = s3_path.joinpath(*filename.split("/"))
+
+    cube = DicomCube(DicomParser(dicom_path))
+    dicom_path = cube.upload(s3_path)
+    file_hash = cube.hash
+
+    ai_module_request = {
+        "s3_dicom_path": file_hash,
+        "slice_num": 10,
+    }
+
+    try:
+        response = requests.post(
+            f"{AI_MODULE_HTTP}{AI_MODULE_POST_ENDPOINT}",
+            json=ai_module_request,
+        )
+        # Check if the request was successful (status code 2xx)
+        response.raise_for_status()
+    except requests.HTTPError as exc:
+        # Handle any HTTP errors
+        raise HTTPException(
+            status_code=exc.response.status_code, detail=str(exc)
+        )
+
+    possible_steps = [
+        "Preprocessing",
+        "Segmentation",
+        "Resampling",
+        "Pathline extraction",
+        "Slicing",
+    ]
+    serieses_hashes, serieses_statuses = [], []
+    for series_hash, series_data in cube.serieses:
+        if len(series_data) == 0:
+            continue
+        serieses_hashes.append(series_hash)
+        series_steps_statuses = []
+        for step_name in possible_steps:
+            step_status = schemas.StepStatus(
+                step_name=step_name,
+                is_ready=False,
+            )
+            series_steps_statuses.append(step_status)
+
+        series_steps_statuses = schemas.SeriesStepsStatuses(
+            series_hash=series_hash,
+            series_statuses=series_steps_statuses,
+        )
+        serieses_statuses.append(series_steps_statuses)
+    response = schemas.ResponseSeriesesStatuses(
+        serieses_num=len(serieses_hashes),
+        file_hash=file_hash,
+        serieses_statuses=serieses_statuses,
+    )
+    input_data = schemas.StatusInput(
+        appointment_id=appointment_id,
+        file_hash=file_hash,
+        series_hashes=serieses_hashes,
+    )
+    crud.create_status(db, input_data)
+
+    return response
+
+
+@router.get(
+    "/get_status",
+    response_model=schemas.ResponseSeriesesStatuses,
+    description="Get current status for appointment file.",
+)
+def get_status(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(oauth2.require_user),
+):
+    appointment = crud.get_appointment_by_id(db, appointment_id)
+    if not appointment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Appointment {appointment_id} is not exists",
+        )
+    possible_steps = [
+        "Preprocessing",
+        "Segmentation",
+        "Resampling",
+        "Pathline extraction",
+        "Slicing",
+        "Done",
+    ]
+    serieses_statuses = []
+    file_series = crud.get_status(db, appointment_id)
+    for _, series in file_series:
+        file_hash = series.file_hash
+        series_hash = series.series_hash
+        series_status = crud.get_series_status(
+            db, file_hash, series_hash
+        ).status
+
+        is_failed = False
+        if series_status.startswith("Failed "):
+            is_failed = True
+            series_status = series_status.replace("Failed ", "")
+
+        is_ready_until = possible_steps.index(series_status)
+        series_steps_statuses = []
+
+        for i, step_name in enumerate(possible_steps[:-1]):
+            step_status = schemas.StepStatus(
+                step_name=step_name,
+                is_ready=True if i < is_ready_until else False,
+                is_failed=False if i < is_ready_until else is_failed,
+            )
+            series_steps_statuses.append(step_status)
+        series_steps_statuses = schemas.SeriesStepsStatuses(
+            series_hash=series_hash,
+            series_statuses=series_steps_statuses,
+        )
+        serieses_statuses.append(series_steps_statuses)
+    response = schemas.ResponseSeriesesStatuses(
+        serieses_num=len(file_series),
+        file_hash=file_hash,
+        serieses_statuses=serieses_statuses,
+    )
+    return response
+
+
+@router.get(
+    "/get_slices_num",
+    description="Get num of slices for report.",
+)
+def get_slices_num(
+    appointment_id: int,
+    series_id: int,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(oauth2.require_user),
+):
+    return {"slices_num": 10}
+
+
+def get_temp_dir():
+    dir = tempfile.TemporaryDirectory()
+    try:
+        yield dir.name
+    finally:
+        del dir
+
+
+@router.get(
+    "/get_slice",
+    description="Get #slice_num slice for report.",
+)
+def get_slice(
+    appointment_id: int,
+    series_id: int,
+    slice_num: int,
+    db: Session = Depends(get_db),
+    minio: Minio = Depends(get_minio_results),
+    temp_dir=Depends(get_temp_dir),
+    user_id: str = Depends(oauth2.require_user),
+):
+    statuses = crud.get_status(db, appointment_id)
+    series = statuses[series_id][1]
+    file_hash = series.file_hash
+    series_hash = series.series_hash
+
+    path = minio / file_hash / series_hash / "slices" / str(slice_num)
+    slice = numpy_load(path / "slice.npy")
+    slice = (slice - slice.min()) / (slice.max() - slice.min())
+    slice = (slice * 255).astype(np.uint8)
+    gray_image = Image.fromarray(slice, "L")
+
+    temp_file_path = os.path.join(temp_dir, "temp_image.png")
+    gray_image.save(temp_file_path)
+
+    return FileResponse(temp_file_path)
+
+
+@router.get(
+    "/get_rotated_slice_masked",
+    description="Get #slice_num rotated slice with "
+    "aorta mask on it for report.",
+)
+def get_rotated_slice_masked(
+    appointment_id: int,
+    series_id: int,
+    slice_num: int,
+    db: Session = Depends(get_db),
+    minio: Minio = Depends(get_minio_results),
+    temp_dir=Depends(get_temp_dir),
+    user_id: str = Depends(oauth2.require_user),
+):
+    statuses = crud.get_status(db, appointment_id)
+    series = statuses[series_id][1]
+    file_hash = series.file_hash
+    series_hash = series.series_hash
+
+    path = minio / file_hash / series_hash / "slices" / str(slice_num)
+    orig_slice = numpy_load(path / "slice.npy")
+    orig_slice = (orig_slice - orig_slice.min()) / (
+        orig_slice.max() - orig_slice.min()
+    )
+    orig_slice = (orig_slice * 255).astype(np.uint8)
+
+    rot_slice = numpy_load(path / "rotated_slice.npy")
+    rot_slice = (rot_slice - rot_slice.min()) / (
+        rot_slice.max() - rot_slice.min()
+    )
+    rot_slice = (rot_slice * 255).astype(np.uint8)
+    first_nonzero_row = rot_slice.nonzero()[0][0]
+    last_nonzero_row = rot_slice.nonzero()[0][-1]
+    rot_slice = rot_slice[first_nonzero_row:last_nonzero_row, :]
+
+    mask = numpy_load(path / "rotated_mask.npy").astype(np.uint8) * 255
+    mask = mask[first_nonzero_row:last_nonzero_row, :]
+
+    contours, _ = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
+    rot_slice = cv2.cvtColor(rot_slice, cv2.COLOR_GRAY2RGB)
+    cv2.drawContours(rot_slice, contours, -1, (255, 255, 0), 1)
+
+    temp_file_path = os.path.join(temp_dir, "temp_image.png")
+
+    fig, ax = plt.subplots(1, 2, figsize=(12, 6))
+    ax = ax.ravel()
+    ax[0].imshow(orig_slice, "gray")
+    ax[0].axis("off")
+    ax[1].imshow(rot_slice)
+    ax[1].axis("off")
+    fig.tight_layout()
+    fig.savefig(temp_file_path)
+
+    return FileResponse(temp_file_path)
 
 
 @router.get(

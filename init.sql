@@ -44,3 +44,17 @@ CREATE TABLE IF NOT EXISTS appointments(
     CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
     CONSTRAINT fk_examination FOREIGN KEY (examination_id) REFERENCES examinations(examination_id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS appointment_file(
+    appointment_file_key serial PRIMARY KEY,
+    appointment_id INT NOT NULL,
+    file_hash VARCHAR(32),
+
+    CONSTRAINT fk_appointment FOREIGN KEY (appointment_id) REFERENCES appointments(appointment_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS series(
+    series_hash VARCHAR(32) PRIMARY KEY,
+    file_hash VARCHAR(32),
+    status VARCHAR(255)
+);

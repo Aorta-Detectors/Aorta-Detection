@@ -176,3 +176,99 @@ def delete_appointment_by_id(db: Session, appointment_id: int):
     ).delete()
     db.commit()
     return {"status": 0}
+
+
+def create_status(db: Session, input_data: schemas.StatusInput):
+    db_appointment_file = models.AppointmentFile(
+        appointment_id=input_data.appointment_id,
+        file_hash=input_data.file_hash,
+    )
+
+    for series_hash in sorted(input_data.series_hashes):
+        db_series = models.Series(
+            series_hash=series_hash,
+            file_hash=input_data.file_hash,
+            status="Preprocessing",
+        )
+        existing_series = (
+            db.query(models.Series).filter_by(series_hash=series_hash).first()
+        )
+        if existing_series:
+            db.delete(existing_series)
+            db.commit()
+        db.add(db_series)
+
+    db.add(db_appointment_file)
+    db.commit()
+    db.refresh(db_appointment_file)
+
+
+def get_series_status(db: Session, file_hash: str, series_hash: str):
+    result = (
+        db.query(models.Series)
+        .filter(
+            (models.Series.series_hash == series_hash)
+            & (models.Series.file_hash == file_hash)
+        )
+        .first()
+    )
+    return result
+
+
+def check_if_all_series_done(db: Session, file_hash: str):
+    result = (
+        db.query(models.Series)
+        .filter(models.Series.file_hash == file_hash)
+        .order_by(models.Series.series_hash)
+        .all()
+    )
+    for series in result:
+        if series.status != "Done":
+            return False
+    return True
+
+
+def change_status(db: Session, data: schemas.StatusChange):
+    result = (
+        db.query(models.Series)
+        .filter(models.Series.file_hash == data.file_hash)
+        .filter(models.Series.series_hash == data.series_hash)
+        .first()
+    )
+    result.status = data.status
+    db.commit()
+    if data.status == "Done":
+        is_all_series_done = check_if_all_series_done(db, data.file_hash)
+        if is_all_series_done:
+            appointment_file = get_appointment_by_file(db, data.file_hash)
+            appointment_id = appointment_file.appointment_id
+            appointment = get_appointment_by_id(db, appointment_id)
+            appointment.is_ready = True
+            db.commit()
+            db.refresh(appointment)
+    db.refresh(result)
+    return result
+
+
+def get_appointment_by_file(db: Session, file_hash: str):
+    result = (
+        db.query(models.AppointmentFile)
+        .filter(models.AppointmentFile.file_hash == file_hash)
+        .order_by(models.AppointmentFile.appointment_file_key.desc())
+        .first()
+    )
+    return result
+
+
+def get_status(db: Session, appointment_id: int):
+    result = (
+        db.query(models.AppointmentFile, models.Series)
+        .join(
+            models.Series,
+            models.AppointmentFile.file_hash == models.Series.file_hash,
+        )
+        .filter(models.AppointmentFile.appointment_id == appointment_id)
+        .order_by(models.Series.series_hash)
+        .all()
+    )
+    return result

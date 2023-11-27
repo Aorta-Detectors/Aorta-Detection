@@ -1,14 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import settings
-from app.routers import auth, info
+from app.routers import auth, external, info
 
 app = FastAPI()
 
-origins = [
-    settings.CLIENT_ORIGIN,
-]
+origins = ["*"]
 
 app.add_middleware(
     CORSMiddleware,
@@ -21,6 +18,7 @@ app.add_middleware(
 
 app.include_router(auth.router, tags=["Auth"], prefix="/api/auth")
 app.include_router(info.router, tags=["Info"], prefix="/api/info")
+app.include_router(external.router, tags=["External"], prefix="/api/external")
 
 
 @app.get("/api/healthchecker")
