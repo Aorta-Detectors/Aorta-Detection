@@ -264,7 +264,7 @@ def add_file(
     file_hash = cube.hash
 
     ai_module_request = {
-        "s3_dicom_path": dicom_path.name,
+        "s3_dicom_path": file_hash,
         "slice_num": 10,
     }
 
