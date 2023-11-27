@@ -179,6 +179,7 @@ class StatusInput(BaseModel):
 class StepStatus(BaseModel):
     step_name: str
     is_ready: bool
+    is_failed: bool = False
 
 
 class SeriesStepsStatuses(BaseModel):

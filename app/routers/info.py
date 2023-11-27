@@ -1,8 +1,11 @@
+import os
+import tempfile
 import zipfile
 from datetime import datetime
 from math import ceil
 
 import httpx
+import numpy as np
 from fastapi import (
     APIRouter,
     Depends,
@@ -11,14 +14,17 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.responses import FileResponse
 from minio import Minio
+from PIL import Image
 from sqlalchemy.orm import Session
 
 from app import oauth2
 from app.config import settings
 from app.db import crud, schemas
-from app.db.database import get_db, get_minio_db
+from app.db.database import get_db, get_minio_db, get_minio_results
 from dicom_wrapper import DicomCube, DicomParser
+from minio_path.utils import numpy_load
 
 router = APIRouter()
 AI_MODULE_HTTP = settings.AI_MODULE_HTTP
@@ -259,6 +265,7 @@ def add_file(
 
     ai_module_request = {
         "s3_dicom_path": dicom_path.name,
+        "slice_num": 10,
     }
 
     try:
@@ -347,6 +354,12 @@ def get_status(
         series_status = crud.get_series_status(
             db, file_hash, series_hash
         ).status
+
+        is_failed = False
+        if series_status.startswith("Failed "):
+            is_failed = True
+            series_status = series_status.replace("Failed ", "")
+
         is_ready_until = possible_steps.index(series_status)
         series_steps_statuses = []
 
@@ -354,6 +367,7 @@ def get_status(
             step_status = schemas.StepStatus(
                 step_name=step_name,
                 is_ready=True if i < is_ready_until else False,
+                is_failed=False if i < is_ready_until else is_failed,
             )
             series_steps_statuses.append(step_status)
         series_steps_statuses = schemas.SeriesStepsStatuses(
@@ -367,6 +381,49 @@ def get_status(
         serieses_statuses=serieses_statuses,
     )
     return response
+
+
+@router.get(
+    "/get_slices_num",
+    description="Get num of slices for report.",
+)
+def get_slices_num(
+    appointment_id: int,
+    series_id: int,
+    db: Session = Depends(get_db),
+    minio_results: Minio = Depends(),
+    user_id: str = Depends(oauth2.require_user),
+):
+    return 10
+
+
+@router.get(
+    "/get_slice",
+    description="Get num of slices for report.",
+)
+def get_slice(
+    appointment_id: int,
+    series_id: int,
+    db: Session = Depends(get_db),
+    minio: Minio = Depends(get_minio_results),
+    user_id: str = Depends(oauth2.require_user),
+):
+    statuses = crud.get_status(db, appointment_id)
+    series = statuses[series_id][1]
+    file_hash = series.file_hash
+    series_hash = series.series_hash
+
+    path = minio / file_hash / series_hash / "slices" / str(series_id)
+    slice = numpy_load(path)
+    slice = (slice - slice.min()) / (slice.max() - slice.min())
+    slice = (slice * 255).astype(np.uint8)
+    gray_image = Image.fromarray(slice, "L")
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_file_path = os.path.join(temp_dir, "temp_image.png")
+        gray_image.save(temp_file_path)
+
+        return FileResponse(temp_file_path)
 
 
 @router.get(

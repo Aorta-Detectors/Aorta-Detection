@@ -45,3 +45,19 @@ def get_minio_db():
         yield s3_path
     finally:
         del s3_path
+
+
+def get_minio_results():
+    s3_path = (
+        MinioPath.fromauth(
+            host=MINIO_HTTP,
+            access_key=MINIO_ACCESS_KEY,
+            secret_key=MINIO_SECRET_KEY,
+            secure=False,
+        )
+        / "testresults"
+    )
+    try:
+        yield s3_path
+    finally:
+        del s3_path

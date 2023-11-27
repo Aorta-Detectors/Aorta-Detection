@@ -27,6 +27,7 @@ minio
 numpy==1.26.0
 orjson==3.8.3
 passlib==1.7.4
+Pillow
 psycopg2==2.9.5
 pycparser==2.21
 pydantic==1.10.2
