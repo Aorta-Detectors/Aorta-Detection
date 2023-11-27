@@ -391,10 +391,9 @@ def get_slices_num(
     appointment_id: int,
     series_id: int,
     db: Session = Depends(get_db),
-    minio_results: Minio = Depends(),
     user_id: str = Depends(oauth2.require_user),
 ):
-    return 10
+    return {"slices_num": 10}
 
 
 @router.get(
