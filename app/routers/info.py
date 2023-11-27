@@ -4,6 +4,8 @@ import zipfile
 from datetime import datetime
 from math import ceil
 
+import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 import requests
 from fastapi import (
@@ -405,7 +407,7 @@ def get_temp_dir():
 
 @router.get(
     "/get_slice",
-    description="Get num of slices for report.",
+    description="Get #slice_num slice for report.",
 )
 def get_slice(
     appointment_id: int,
@@ -429,6 +431,62 @@ def get_slice(
 
     temp_file_path = os.path.join(temp_dir, "temp_image.png")
     gray_image.save(temp_file_path)
+
+    return FileResponse(temp_file_path)
+
+
+@router.get(
+    "/get_rotated_slice_masked",
+    description="Get #slice_num rotated slice with "
+    "aorta mask on it for report.",
+)
+def get_rotated_slice_masked(
+    appointment_id: int,
+    series_id: int,
+    slice_num: int,
+    db: Session = Depends(get_db),
+    minio: Minio = Depends(get_minio_results),
+    temp_dir=Depends(get_temp_dir),
+    user_id: str = Depends(oauth2.require_user),
+):
+    statuses = crud.get_status(db, appointment_id)
+    series = statuses[series_id][1]
+    file_hash = series.file_hash
+    series_hash = series.series_hash
+
+    path = minio / file_hash / series_hash / "slices" / str(slice_num)
+    orig_slice = numpy_load(path / "slice.npy")
+    orig_slice = (orig_slice - orig_slice.min()) / (
+        orig_slice.max() - orig_slice.min()
+    )
+    orig_slice = (orig_slice * 255).astype(np.uint8)
+
+    rot_slice = numpy_load(path / "rotated_slice.npy")
+    rot_slice = (rot_slice - rot_slice.min()) / (
+        rot_slice.max() - rot_slice.min()
+    )
+    rot_slice = (rot_slice * 255).astype(np.uint8)
+    first_nonzero_row = rot_slice.nonzero()[0][0]
+    last_nonzero_row = rot_slice.nonzero()[0][-1]
+    rot_slice = rot_slice[first_nonzero_row:last_nonzero_row, :]
+
+    mask = numpy_load(path / "rotated_mask.npy").astype(np.uint8) * 255
+    mask = mask[first_nonzero_row:last_nonzero_row, :]
+
+    contours, _ = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
+    rot_slice = cv2.cvtColor(rot_slice, cv2.COLOR_GRAY2RGB)
+    cv2.drawContours(rot_slice, contours, -1, (255, 255, 0), 1)
+
+    temp_file_path = os.path.join(temp_dir, "temp_image.png")
+
+    fig, ax = plt.subplots(1, 2, figsize=(12, 6))
+    ax = ax.ravel()
+    ax[0].imshow(orig_slice, "gray")
+    ax[0].axis("off")
+    ax[1].imshow(rot_slice)
+    ax[1].axis("off")
+    fig.tight_layout()
+    fig.savefig(temp_file_path)
 
     return FileResponse(temp_file_path)
 
