@@ -5,7 +5,12 @@ from app.routers import auth, external, info
 
 app = FastAPI()
 
-origins = ["*"]
+origins = [
+    "https://aorta-detection.aspresearch.space/", 
+    "http://localhost:5173", 
+    "http://92.100.20.67:5173", 
+    "http://10.102.105.20:5173"
+]
 
 app.add_middleware(
     CORSMiddleware,
