@@ -118,6 +118,9 @@ class Appointment(BaseModel):
 class ResponseAppointment(Appointment):
     appointment_id: int
 
+    class Config:
+        orm_mode = True
+        
 
 @as_form
 class InputExamination(InputAppointment):
@@ -146,12 +149,18 @@ class ResponseExamination(Examination):
     patient: Patient
     appointments: List[ResponseAppointment]
 
+    class Config:
+        orm_mode = True
+
 
 class ResponseExaminationGeneral(BaseModel):
     examination_id: int
     patient_id: str
     patient_name: str
     last_appointment_time: datetime
+
+    class Config:
+        orm_mode = True
 
 
 class ResponseExaminationsPagination(BaseModel):
@@ -161,6 +170,9 @@ class ResponseExaminationsPagination(BaseModel):
     page_total_count: int
     requested_examinations: List[ResponseExaminationGeneral]
 
+    class Config:
+        orm_mode = True
+
 
 class ResponsePatientsPagination(BaseModel):
     current_page: int
@@ -169,11 +181,17 @@ class ResponsePatientsPagination(BaseModel):
     page_total_count: int
     requested_patients: List[Patient]
 
+    class Config:
+        orm_mode = True
+
 
 class StatusInput(BaseModel):
     appointment_id: int
     file_hash: str
     series_hashes: List[str]
+
+    class Config:
+        orm_mode = True
 
 
 class StepStatus(BaseModel):
@@ -181,10 +199,16 @@ class StepStatus(BaseModel):
     is_ready: bool
     is_failed: bool = False
 
+    class Config:
+        orm_mode = True
+
 
 class SeriesStepsStatuses(BaseModel):
     series_hash: str
     series_statuses: List[StepStatus]
+
+    class Config:
+        orm_mode = True
 
 
 class ResponseSeriesesStatuses(BaseModel):
@@ -192,8 +216,14 @@ class ResponseSeriesesStatuses(BaseModel):
     file_hash: str
     serieses_statuses: List[SeriesStepsStatuses]
 
+    class Config:
+        orm_mode = True
+
 
 class StatusChange(BaseModel):
     file_hash: str
     series_hash: str
     status: str
+
+    class Config:
+        orm_mode = True
