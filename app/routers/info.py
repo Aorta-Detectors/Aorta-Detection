@@ -308,12 +308,12 @@ def add_file(
     crud.create_status(db, input_data)
 
     try:
-        response = requests.post(
+        ai_response = requests.post(
             f"{AI_MODULE_HTTP}{AI_MODULE_POST_ENDPOINT}",
             json=ai_module_request,
         )
         # Check if the request was successful (status code 2xx)
-        response.raise_for_status()
+        ai_response.raise_for_status()
     except requests.HTTPError as exc:
         # Handle any HTTP errors
         raise HTTPException(
