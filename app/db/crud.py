@@ -183,6 +183,18 @@ def create_status(db: Session, input_data: schemas.StatusInput):
         appointment_id=input_data.appointment_id,
         file_hash=input_data.file_hash,
     )
+    existing_appointment_file = (
+        db.query(models.AppointmentFile)
+        .filter_by(appointment_id=input_data.appointment_id)
+        .first()
+    )
+    if existing_appointment_file:
+        existing_appointment_file.file_hash = input_data.file_hash
+        db.commit()
+    else:
+        db.add(db_appointment_file)
+        db.commit()
+        db.refresh(db_appointment_file)
 
     for series_hash in sorted(input_data.series_hashes):
         db_series = models.Series(
@@ -191,16 +203,14 @@ def create_status(db: Session, input_data: schemas.StatusInput):
             status="Preprocessing",
         )
         existing_series = (
-            db.query(models.Series).filter_by(series_hash=series_hash).first()
+            db.query(models.Series)
+            .filter_by(series_hash=series_hash, file_hash=input_data.file_hash)
+            .first()
         )
-        if existing_series:
-            db.delete(existing_series)
+        if not existing_series:
+            db.add(db_series)
             db.commit()
-        db.add(db_series)
-
-    db.add(db_appointment_file)
-    db.commit()
-    db.refresh(db_appointment_file)
+    return db_appointment_file
 
 
 def get_series_status(db: Session, file_hash: str, series_hash: str):
@@ -235,17 +245,26 @@ def change_status(db: Session, data: schemas.StatusChange):
         .filter(models.Series.series_hash == data.series_hash)
         .first()
     )
-    result.status = data.status
-    db.commit()
-    if data.status == "Done":
-        is_all_series_done = check_if_all_series_done(db, data.file_hash)
-        if is_all_series_done:
-            appointment_file = get_appointment_by_file(db, data.file_hash)
-            appointment_id = appointment_file.appointment_id
-            appointment = get_appointment_by_id(db, appointment_id)
-            appointment.is_ready = True
-            db.commit()
-            db.refresh(appointment)
+    possible_steps = [
+        "Preprocessing",
+        "Segmentation",
+        "Resampling",
+        "Pathline extraction",
+        "Slicing",
+        "Done",
+    ]
+    if possible_steps.index(result.status) < possible_steps.index(data.status):
+        result.status = data.status
+        db.commit()
+        if data.status == "Done":
+            is_all_series_done = check_if_all_series_done(db, data.file_hash)
+            if is_all_series_done:
+                appointment_file = get_appointment_by_file(db, data.file_hash)
+                appointment_id = appointment_file.appointment_id
+                appointment = get_appointment_by_id(db, appointment_id)
+                appointment.is_ready = True
+                db.commit()
+                db.refresh(appointment)
     db.refresh(result)
     return result
 

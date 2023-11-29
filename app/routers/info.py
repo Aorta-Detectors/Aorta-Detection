@@ -352,9 +352,7 @@ def get_status(
     for _, series in file_series:
         file_hash = series.file_hash
         series_hash = series.series_hash
-        series_status = crud.get_series_status(
-            db, file_hash, series_hash
-        ).status
+        series_status = series.status
 
         is_failed = False
         if series_status.startswith("Failed "):
@@ -489,6 +487,18 @@ def get_rotated_slice_masked(
     fig.savefig(temp_file_path)
 
     return FileResponse(temp_file_path)
+
+
+@router.get(
+    "/get_slice_diameter", description="Get slice diameter in millimeters."
+)
+def get_diameter(
+    appointment_id: int,
+    series_id: int,
+    slice_num: int,
+    user_id: str = Depends(oauth2.require_user),
+):
+    return {"diameter": 25}
 
 
 @router.get(
