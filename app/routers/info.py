@@ -490,15 +490,22 @@ def get_rotated_slice_masked(
 
 
 @router.get(
-    "/get_slice_diameter", description="Get slice diameter in millimeters."
+    "/get_slice_parameters",
+    description="""Get main parameters of aorta on slice:
+Two diameters, length of a circle, area of a circle.""",
 )
-def get_diameter(
+def get_parameters(
     appointment_id: int,
     series_id: int,
     slice_num: int,
     user_id: str = Depends(oauth2.require_user),
 ):
-    return {"diameter": 25}
+    return {
+        "big_diameter": 33,
+        "small_diameter": 25,
+        "length_of_circle": 50,
+        "area_of_circle": 60,
+    }
 
 
 @router.get(
