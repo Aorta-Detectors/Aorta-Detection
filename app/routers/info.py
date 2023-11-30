@@ -227,6 +227,9 @@ def add_appointment(
 
     return response
 
+import cProfile
+from pstats import Stats
+
 
 @router.put(
     "/add_file",
@@ -240,6 +243,9 @@ def add_file(
     s3_path: Minio = Depends(get_minio_db),
     user_id: str = Depends(oauth2.require_user),
 ):
+    profile = cProfile.Profile()
+    profile.enable()
+
     appointment = crud.get_appointment_by_id(db, appointment_id)
     if not appointment:
         raise HTTPException(
@@ -319,6 +325,10 @@ def add_file(
         raise HTTPException(
             status_code=exc.response.status_code, detail=str(exc)
         )
+
+    profile.disable()
+    stats = Stats(profile)
+    stats.strip_dirs().sort_stats('cumulative').print_stats(200)
 
     return response
 
