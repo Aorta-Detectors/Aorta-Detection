@@ -253,7 +253,9 @@ def change_status(db: Session, data: schemas.StatusChange):
         "Slicing",
         "Done",
     ]
-    if possible_steps.index(result.status) < possible_steps.index(data.status):
+    index_current = possible_steps.index(result.status.replace("Failed ", ""))
+    index_new = possible_steps.index(data.status.replace("Failed ", ""))
+    if index_current < index_new:
         result.status = data.status
         db.commit()
         if data.status == "Done":
