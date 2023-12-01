@@ -10,6 +10,7 @@ import numpy as np
 import requests
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     Depends,
     HTTPException,
     Query,
@@ -228,6 +229,27 @@ def add_appointment(
     return response
 
 
+def create_ai_request(cube, s3_path, file_hash):
+    cube.upload(s3_path)
+    ai_module_request = {
+        "s3_dicom_path": file_hash,
+        "slice_num": 10,
+    }
+
+    try:
+        ai_response = requests.post(
+            f"{AI_MODULE_HTTP}{AI_MODULE_POST_ENDPOINT}",
+            json=ai_module_request,
+        )
+        # Check if the request was successful (status code 2xx)
+        ai_response.raise_for_status()
+    except requests.HTTPError as exc:
+        # Handle any HTTP errors
+        raise HTTPException(
+            status_code=exc.response.status_code, detail=str(exc)
+        )
+
+
 @router.put(
     "/add_file",
     response_model=schemas.ResponseSeriesesStatuses,
@@ -236,6 +258,7 @@ def add_appointment(
 def add_file(
     appointment_id: int,
     file: UploadFile,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     s3_path: Minio = Depends(get_minio_db),
     user_id: str = Depends(oauth2.require_user),
@@ -262,13 +285,8 @@ def add_file(
             dicom_path = s3_path.joinpath(*filename.split("/"))
 
     cube = DicomCube(DicomParser(dicom_path))
-    dicom_path = cube.upload(s3_path)
     file_hash = cube.hash
-
-    ai_module_request = {
-        "s3_dicom_path": file_hash,
-        "slice_num": 10,
-    }
+    background_tasks.add_task(create_ai_request, cube, s3_path, file_hash)
 
     possible_steps = [
         "Preprocessing",
@@ -306,19 +324,6 @@ def add_file(
         series_hashes=serieses_hashes,
     )
     crud.create_status(db, input_data)
-
-    try:
-        ai_response = requests.post(
-            f"{AI_MODULE_HTTP}{AI_MODULE_POST_ENDPOINT}",
-            json=ai_module_request,
-        )
-        # Check if the request was successful (status code 2xx)
-        ai_response.raise_for_status()
-    except requests.HTTPError as exc:
-        # Handle any HTTP errors
-        raise HTTPException(
-            status_code=exc.response.status_code, detail=str(exc)
-        )
 
     return response
 
