@@ -120,7 +120,7 @@ class ResponseAppointment(Appointment):
 
     class Config:
         orm_mode = True
-        
+
 
 @as_form
 class InputExamination(InputAppointment):
