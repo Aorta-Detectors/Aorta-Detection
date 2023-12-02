@@ -229,6 +229,37 @@ def add_appointment(
     return response
 
 
+@router.put(
+    "/update_appointment",
+    description="Update existing appointment.",
+)
+def update_appointment(
+    appointment_id: int,
+    appointment_data: schemas.InputAppointment = Depends(
+        schemas.InputAppointment.as_form
+    ),
+    db: Session = Depends(get_db),
+    user_id: str = Depends(oauth2.require_user),
+):
+    appointment = crud.get_appointment_by_id(db, appointment_id)
+    if not appointment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Appointment is not exists",
+        )
+    appointment = schemas.Appointment(
+        user_id=appointment.user_id,
+        appointment_time=appointment.appointment_time,
+        examination_id=appointment.examination_id,
+        **appointment_data.dict(),
+    )
+    appointment_updated = crud.update_appointment(
+        db, appointment_id, appointment
+    )
+
+    return appointment_updated
+
+
 def create_ai_request(cube, s3_path, file_hash):
     cube.upload(s3_path)
     ai_module_request = {
