@@ -170,6 +170,23 @@ def get_appointment_by_id(db: Session, appointment_id: int):
     )
 
 
+def update_appointment(
+    db: Session, appointment_id, appointment: schemas.Appointment
+):
+    db_appointment = (
+        db.query(models.Appointment)
+        .filter(models.Appointment.appointment_id == appointment_id)
+        .first()
+    )
+
+    for key, value in appointment.dict().items():
+        setattr(db_appointment, key, value) if value is not None else None
+
+    db.commit()
+    db.refresh(db_appointment)
+    return db_appointment
+
+
 def delete_appointment_by_id(db: Session, appointment_id: int):
     db.query(models.Appointment).filter(
         models.Appointment.appointment_id == appointment_id
