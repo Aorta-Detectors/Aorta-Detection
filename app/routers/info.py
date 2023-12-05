@@ -18,6 +18,7 @@ from fastapi import (
     status,
 )
 from fastapi.responses import FileResponse
+from loguru import logger
 from minio import Minio
 from PIL import Image
 from sqlalchemy.orm import Session
@@ -268,6 +269,10 @@ def add_file(
     s3_path: Minio = Depends(get_minio_db),
     user_id: str = Depends(oauth2.require_user),
 ):
+    logger.info(
+        "FILE FOR APPOINTMENT {appointment_id} IS GET",
+        appointment_id=appointment_id,
+    )
     appointment = crud.get_appointment_by_id(db, appointment_id)
     if not appointment:
         raise HTTPException(
@@ -291,7 +296,15 @@ def add_file(
 
     cube = DicomCube(DicomParser(dicom_path))
     file_hash = cube.hash
+    logger.info(
+        "HASH FOR FILE FOR APPOINTMENT {appointment_id} IS CALCULATED",
+        appointment_id=appointment_id,
+    )
     background_tasks.add_task(create_ai_request, cube, s3_path, file_hash)
+    logger.info(
+        "BACKGROUND TASK FOR FILE FOR APPOINTMENT {appointment_id} IS SEND",
+        appointment_id=appointment_id,
+    )
 
     possible_steps = [
         "Preprocessing",
@@ -329,7 +342,10 @@ def add_file(
         series_hashes=serieses_hashes,
     )
     crud.create_status(db, input_data)
-
+    logger.info(
+        "STATUS FOR FILE FOR APPOINTMENT {appointment_id} IS CREATED",
+        appointment_id=appointment_id,
+    )
     return response
 
 
