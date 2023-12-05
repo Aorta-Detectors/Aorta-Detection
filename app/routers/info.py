@@ -98,8 +98,10 @@ def create_examination(
         **examination_data.dict(),
     )
     appointment_db = crud.create_appointment(db, appointment)
+    doctor_info = crud.get_user_by_id(db, appointment_db.user_id)
+    doctor_name = doctor_info.first_name + " " + doctor_info.second_name
     appointment_updated = schemas.ResponseAppointment(
-        **appointment_db.__dict__
+        doctor_name=doctor_name, **appointment_db.__dict__
     )
 
     response = schemas.ResponseExamination(
@@ -131,7 +133,7 @@ def get_examination(
     patient = schemas.Patient(**query_result[0][2].__dict__)
     appointments = []
     for _, app, _ in query_result:
-        doctor_info = crud.get_user_by_id(app.user_id)
+        doctor_info = crud.get_user_by_id(db, app.user_id)
         doctor_name = doctor_info.first_name + " " + doctor_info.second_name
         response = schemas.ResponseAppointment(
             doctor_name=doctor_name, **app.__dict__
@@ -545,7 +547,7 @@ def get_appointment(
     user_id: str = Depends(oauth2.require_user),
 ):
     appointment = crud.get_appointment_by_id(db, appointment_id)
-    doctor_info = crud.get_user_by_id(appointment.user_id)
+    doctor_info = crud.get_user_by_id(db, appointment.user_id)
     doctor_name = doctor_info.first_name + " " + doctor_info.second_name
     response = schemas.ResponseAppointment(
         doctor_name=doctor_name, **appointment.__dict__
