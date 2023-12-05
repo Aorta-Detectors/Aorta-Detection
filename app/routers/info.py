@@ -128,13 +128,18 @@ def get_examination(
             detail="Examination with given id not found",
         )
     patient = schemas.Patient(**query_result[0][2].__dict__)
+    appointments = []
+    for _, app, _ in query_result:
+        doctor_info = crud.get_user_by_id(app.user_id)
+        doctor_name = doctor_info.first_name + " " + doctor_info.second_name
+        response = schemas.ResponseAppointment(
+            doctor_name=doctor_name, **app.__dict__
+        )
+        appointments.append(response)
     response = schemas.ResponseExamination(
         **query_result[0][0].__dict__,
         patient=patient,
-        appointments=[
-            schemas.ResponseAppointment(**app.__dict__)
-            for _, app, _ in query_result
-        ],
+        appointments=appointments,
     )
     return response
 
@@ -524,12 +529,17 @@ def get_appointment(
     user_id: str = Depends(oauth2.require_user),
 ):
     appointment = crud.get_appointment_by_id(db, appointment_id)
+    doctor_info = crud.get_user_by_id(appointment.user_id)
+    doctor_name = doctor_info.first_name + " " + doctor_info.second_name
+    response = schemas.ResponseAppointment(
+        doctor_name=doctor_name, **appointment.__dict__
+    )
     if not appointment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Appointment with given id not found",
         )
-    return appointment
+    return response
 
 
 @router.delete("/delete_appointment", status_code=status.HTTP_200_OK)

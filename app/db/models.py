@@ -98,7 +98,7 @@ class Appointment(Base):
     disease_anamnesis = Column(Text)
     life_anamnesis = Column(Text)
     echocardiogram_data = Column(Text)
-    is_ready = Column(Boolean)
+    file_hash = Column(String)
 
 
 class AppointmentFile(Base):
