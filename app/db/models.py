@@ -84,10 +84,6 @@ class Appointment(Base):
     )
     user = relationship("User", back_populates="appointment_user_link")
 
-    file_appointment_link = relationship(
-        "AppointmentFile", back_populates="appointment_file_link"
-    )
-
     blood_pressure = Column(String)
     pulse = Column(Integer)
     swell = Column(String)
@@ -98,21 +94,6 @@ class Appointment(Base):
     disease_anamnesis = Column(Text)
     life_anamnesis = Column(Text)
     echocardiogram_data = Column(Text)
-    file_hash = Column(String)
-
-
-class AppointmentFile(Base):
-    __tablename__ = "appointment_file"
-    appointment_file_key = Column(Integer, primary_key=True, index=True)
-    appointment_id = Column(
-        Integer,
-        ForeignKey("appointments.appointment_id", ondelete="CASCADE"),
-        nullable=False,
-    )
-
-    appointment_file_link = relationship(
-        "Appointment", back_populates="file_appointment_link"
-    )
     file_hash = Column(String)
 
 

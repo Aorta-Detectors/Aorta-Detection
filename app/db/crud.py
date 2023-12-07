@@ -255,12 +255,12 @@ def change_status(db: Session, data: schemas.StatusChange):
 
 def get_status(db: Session, appointment_id: int):
     result = (
-        db.query(models.AppointmentFile, models.Series)
+        db.query(models.Appointment, models.Series)
         .join(
             models.Series,
-            models.AppointmentFile.file_hash == models.Series.file_hash,
+            models.Appointment.file_hash == models.Series.file_hash,
         )
-        .filter(models.AppointmentFile.appointment_id == appointment_id)
+        .filter(models.Appointment.appointment_id == appointment_id)
         .order_by(models.Series.series_hash)
         .all()
     )

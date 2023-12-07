@@ -377,6 +377,11 @@ def get_status(
     ]
     serieses_statuses = []
     file_series = crud.get_status(db, appointment_id)
+    if len(file_series) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Appointment {appointment_id} hasn't attached file",
+        )
     for _, series in file_series:
         file_hash = series.file_hash
         series_hash = series.series_hash
@@ -445,6 +450,11 @@ def get_slice(
     user_id: str = Depends(oauth2.require_user),
 ):
     statuses = crud.get_status(db, appointment_id)
+    if len(statuses) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Appointment {appointment_id} hasn't attached file",
+        )
     series = statuses[series_id][1]
     file_hash = series.file_hash
     series_hash = series.series_hash
@@ -476,6 +486,11 @@ def get_rotated_slice_masked(
     user_id: str = Depends(oauth2.require_user),
 ):
     statuses = crud.get_status(db, appointment_id)
+    if len(statuses) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Appointment {appointment_id} hasn't attached file",
+        )
     series = statuses[series_id][1]
     file_hash = series.file_hash
     series_hash = series.series_hash
