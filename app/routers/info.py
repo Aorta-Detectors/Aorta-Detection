@@ -526,22 +526,36 @@ def get_rotated_slice_masked(
 
 
 @router.get(
-    "/get_slice_parameters",
-    description="""Get main parameters of aorta on slice:
+    "/get_series_parameters",
+    response_model=schemas.ResponseSeriesParameters,
+    description="""Get main parameters of aorta for each slice of requested series:
 Two diameters, length of a circle, area of a circle.""",
 )
 def get_parameters(
     appointment_id: int,
     series_id: int,
-    slice_num: int,
     user_id: str = Depends(oauth2.require_user),
 ):
-    return {
-        "big_diameter": 33,
-        "small_diameter": 25,
-        "length_of_circle": 50,
-        "area_of_circle": 60,
-    }
+    total_slices_num = get_slices_num(
+        appointment_id=appointment_id,
+        series_id=series_id,
+        user_id=user_id
+    )["slices_num"]
+
+    series_parameters = []
+    for _ in range(total_slices_num):
+        slice_parameters = schemas.SliceParameters(
+            big_diameter=33,
+            small_diameter=25,
+            length_of_circle=50,
+            area_of_circle=60,
+        )
+        series_parameters.append(slice_parameters)
+
+    response = schemas.ResponseSeriesParameters(
+        series_parameters=series_parameters,
+    )
+    return response
 
 
 @router.get(
