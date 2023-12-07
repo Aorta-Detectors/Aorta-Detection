@@ -227,3 +227,20 @@ class StatusChange(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class SliceParameters(BaseModel):
+    big_diameter: float
+    small_diameter: float
+    length_of_circle: float
+    area_of_circle: float
+
+    class Config:
+        orm_mode = True
+
+
+class ResponseSeriesParameters(BaseModel):
+    series_parameters: List[SliceParameters]
+
+    class Config:
+        orm_mode = True
