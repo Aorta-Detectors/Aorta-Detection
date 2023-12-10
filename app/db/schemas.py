@@ -205,6 +205,7 @@ class StepStatus(BaseModel):
 
 class SeriesStepsStatuses(BaseModel):
     series_hash: str
+    slices_num: int
     series_statuses: List[StepStatus]
 
     class Config:

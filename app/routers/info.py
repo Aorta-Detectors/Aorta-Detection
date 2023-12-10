@@ -341,6 +341,7 @@ def add_file(
 
         series_steps_statuses = schemas.SeriesStepsStatuses(
             series_hash=series_hash,
+            slices_num=0,  # 0 when files added, convert to > 0 if processed successfully
             series_statuses=series_steps_statuses,
         )
         serieses_statuses.append(series_steps_statuses)
@@ -407,6 +408,7 @@ def get_status(
             series_steps_statuses.append(step_status)
         series_steps_statuses = schemas.SeriesStepsStatuses(
             series_hash=series_hash,
+            slices_num=0 if series_status != "Done" else 10,  # if not ready - 0 slices
             series_statuses=series_steps_statuses,
         )
         serieses_statuses.append(series_steps_statuses)
@@ -416,19 +418,6 @@ def get_status(
         serieses_statuses=serieses_statuses,
     )
     return response
-
-
-@router.get(
-    "/get_slices_num",
-    description="Get num of slices for report.",
-)
-def get_slices_num(
-    appointment_id: int,
-    series_id: int,
-    db: Session = Depends(get_db),
-    user_id: str = Depends(oauth2.require_user),
-):
-    return {"slices_num": 10}
 
 
 def get_temp_dir():
