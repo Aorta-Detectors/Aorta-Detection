@@ -18,6 +18,7 @@ from fastapi import (
     status,
 )
 from fastapi.responses import FileResponse
+from loguru import logger
 from minio import Minio
 from PIL import Image
 from sqlalchemy.orm import Session
@@ -97,8 +98,10 @@ def create_examination(
         **examination_data.dict(),
     )
     appointment_db = crud.create_appointment(db, appointment)
+    doctor_info = crud.get_user_by_id(db, appointment_db.user_id)
+    doctor_name = doctor_info.first_name + " " + doctor_info.second_name
     appointment_updated = schemas.ResponseAppointment(
-        **appointment_db.__dict__
+        doctor_name=doctor_name, **appointment_db.__dict__
     )
 
     response = schemas.ResponseExamination(
@@ -128,13 +131,18 @@ def get_examination(
             detail="Examination with given id not found",
         )
     patient = schemas.Patient(**query_result[0][2].__dict__)
+    appointments = []
+    for _, app, _ in query_result:
+        doctor_info = crud.get_user_by_id(db, app.user_id)
+        doctor_name = doctor_info.first_name + " " + doctor_info.second_name
+        response = schemas.ResponseAppointment(
+            doctor_name=doctor_name, **app.__dict__
+        )
+        appointments.append(response)
     response = schemas.ResponseExamination(
         **query_result[0][0].__dict__,
         patient=patient,
-        appointments=[
-            schemas.ResponseAppointment(**app.__dict__)
-            for _, app, _ in query_result
-        ],
+        appointments=appointments,
     )
     return response
 
@@ -294,6 +302,10 @@ def add_file(
     s3_path: Minio = Depends(get_minio_db),
     user_id: str = Depends(oauth2.require_user),
 ):
+    logger.info(
+        "FILE FOR APPOINTMENT {appointment_id} IS GET",
+        appointment_id=appointment_id,
+    )
     appointment = crud.get_appointment_by_id(db, appointment_id)
     if not appointment:
         raise HTTPException(
@@ -317,7 +329,15 @@ def add_file(
 
     cube = DicomCube(DicomParser(dicom_path))
     file_hash = cube.hash
+    logger.info(
+        "HASH FOR FILE FOR APPOINTMENT {appointment_id} IS CALCULATED",
+        appointment_id=appointment_id,
+    )
     background_tasks.add_task(create_ai_request, cube, s3_path, file_hash)
+    logger.info(
+        "BACKGROUND TASK FOR FILE FOR APPOINTMENT {appointment_id} IS SEND",
+        appointment_id=appointment_id,
+    )
 
     possible_steps = [
         "Preprocessing",
@@ -356,7 +376,10 @@ def add_file(
         series_hashes=serieses_hashes,
     )
     crud.create_status(db, input_data)
-
+    logger.info(
+        "STATUS FOR FILE FOR APPOINTMENT {appointment_id} IS CREATED",
+        appointment_id=appointment_id,
+    )
     return response
 
 
@@ -386,6 +409,11 @@ def get_status(
     ]
     serieses_statuses = []
     file_series = crud.get_status(db, appointment_id)
+    if len(file_series) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Appointment {appointment_id} hasn't attached file",
+        )
     for _, series in file_series:
         file_hash = series.file_hash
         series_hash = series.series_hash
@@ -442,6 +470,11 @@ def get_slice(
     user_id: str = Depends(oauth2.require_user),
 ):
     statuses = crud.get_status(db, appointment_id)
+    if len(statuses) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Appointment {appointment_id} hasn't attached file",
+        )
     series = statuses[series_id][1]
     file_hash = series.file_hash
     series_hash = series.series_hash
@@ -473,6 +506,11 @@ def get_rotated_slice_masked(
     user_id: str = Depends(oauth2.require_user),
 ):
     statuses = crud.get_status(db, appointment_id)
+    if len(statuses) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Appointment {appointment_id} hasn't attached file",
+        )
     series = statuses[series_id][1]
     file_hash = series.file_hash
     series_hash = series.series_hash
@@ -558,12 +596,17 @@ def get_appointment(
     user_id: str = Depends(oauth2.require_user),
 ):
     appointment = crud.get_appointment_by_id(db, appointment_id)
+    doctor_info = crud.get_user_by_id(db, appointment.user_id)
+    doctor_name = doctor_info.first_name + " " + doctor_info.second_name
+    response = schemas.ResponseAppointment(
+        doctor_name=doctor_name, **appointment.__dict__
+    )
     if not appointment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Appointment with given id not found",
         )
-    return appointment
+    return response
 
 
 @router.delete("/delete_appointment", status_code=status.HTTP_200_OK)

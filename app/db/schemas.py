@@ -109,7 +109,7 @@ class Appointment(BaseModel):
     disease_anamnesis: Optional[str] = None
     life_anamnesis: Optional[str] = None
     echocardiogram_data: Optional[str] = None
-    is_ready: bool = False
+    file_hash: Optional[str] = None
 
     class Config:
         orm_mode = True
@@ -117,6 +117,7 @@ class Appointment(BaseModel):
 
 class ResponseAppointment(Appointment):
     appointment_id: int
+    doctor_name: str
 
     class Config:
         orm_mode = True
