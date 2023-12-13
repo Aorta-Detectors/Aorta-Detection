@@ -1,3 +1,4 @@
+import base64
 import os
 import tempfile
 import zipfile
@@ -361,7 +362,8 @@ def add_file(
 
         series_steps_statuses = schemas.SeriesStepsStatuses(
             series_hash=series_hash,
-            slices_num=0,  # 0 when files added, convert to > 0 if processed successfully
+            # 0 when files added, convert to > 0 if processed successfully
+            slices_num=0,
             series_statuses=series_steps_statuses,
         )
         serieses_statuses.append(series_steps_statuses)
@@ -436,7 +438,9 @@ def get_status(
             series_steps_statuses.append(step_status)
         series_steps_statuses = schemas.SeriesStepsStatuses(
             series_hash=series_hash,
-            slices_num=0 if series_status != "Done" else 10,  # if not ready - 0 slices
+            slices_num=0
+            if series_status != "Done"
+            else 10,  # if not ready - 0 slices
             series_statuses=series_steps_statuses,
         )
         serieses_statuses.append(series_steps_statuses)
@@ -549,25 +553,26 @@ def get_rotated_slice_masked(
     fig.tight_layout()
     fig.savefig(temp_file_path)
 
-    return FileResponse(temp_file_path)
+    with open(temp_file_path, "rb") as file:
+        encoded_result = base64.b64encode(file.read())
+
+    return {"file": encoded_result}
 
 
 @router.get(
     "/get_series_parameters",
     response_model=schemas.ResponseSeriesParameters,
-    description="""Get main parameters of aorta for each slice of requested series:
-Two diameters, length of a circle, area of a circle.""",
+    description="""
+Get main parameters of aorta for each slice of requested series:
+Two diameters, length of a circle, area of a circle.
+""",
 )
 def get_parameters(
     appointment_id: int,
     series_id: int,
     user_id: str = Depends(oauth2.require_user),
 ):
-    total_slices_num = get_slices_num(
-        appointment_id=appointment_id,
-        series_id=series_id,
-        user_id=user_id
-    )["slices_num"]
+    total_slices_num = 10
 
     series_parameters = []
     for _ in range(total_slices_num):
