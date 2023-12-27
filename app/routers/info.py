@@ -29,7 +29,7 @@ from app.config import settings
 from app.db import crud, schemas
 from app.db.database import get_db, get_minio_db, get_minio_results
 from dicom_wrapper import DicomCube, DicomParser
-from minio_path.utils import numpy_load
+from minio_path.utils import numpy_load, pickle_load
 
 router = APIRouter()
 AI_MODULE_HTTP = settings.AI_MODULE_HTTP
@@ -570,17 +570,30 @@ Two diameters, length of a circle, area of a circle.
 def get_parameters(
     appointment_id: int,
     series_id: int,
+    db: Session = Depends(get_db),
+    minio: Minio = Depends(get_minio_results),
     user_id: str = Depends(oauth2.require_user),
 ):
     total_slices_num = 10
+    statuses = crud.get_status(db, appointment_id)
+    if len(statuses) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Appointment {appointment_id} hasn't attached file",
+        )
+    series = statuses[series_id][1]
+    file_hash = series.file_hash
+    series_hash = series.series_hash
 
     series_parameters = []
-    for _ in range(total_slices_num):
+    for slice_num in range(total_slices_num):
+        path = minio / file_hash / series_hash / "slices" / str(slice_num)
+        slice_params = pickle_load(path / "measurements.pickle")
         slice_parameters = schemas.SliceParameters(
-            big_diameter=33,
-            small_diameter=25,
-            length_of_circle=50,
-            area_of_circle=60,
+            big_diameter=slice_params['max diametr'][-1],
+            small_diameter=slice_params['ortogonal diametr'][-1],
+            length_of_circle=slice_params['perimetr'],
+            area_of_circle=slice_params['area'],
         )
         series_parameters.append(slice_parameters)
 
